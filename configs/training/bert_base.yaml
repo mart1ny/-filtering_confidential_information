@@ -1,0 +1,16 @@
+model_name: xlm-roberta-base
+data_path: dataset/ds.parquet
+output_dir: artifacts/bert_classifier
+text_column: text
+label_column: is_contains_confidential
+group_column: id
+max_length: 256
+train_batch_size: 16
+eval_batch_size: 32
+epochs: 2
+learning_rate: 2e-5
+weight_decay: 0.01
+warmup_ratio: 0.1
+seed: 42
+test_size: 0.15
+val_size: 0.15
