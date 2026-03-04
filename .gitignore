@@ -1,1 +1,15 @@
-/dataset
+.venv/
+.venv_train/
+__pycache__/
+.pycache_local/
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+.env
+artifacts/
+*.pyc
+*.log
+.DS_Store
+dataset
+bert_classifier

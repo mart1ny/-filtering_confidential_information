@@ -1,0 +1,92 @@
+[project]
+name = "confidential-filter-service"
+version = "0.1.0"
+description = "ML-assisted confidential information filtering service"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+  { name = "Danil Vlasuk" }
+]
+dependencies = [
+  "fastapi==0.115.6",
+  "uvicorn==0.32.1",
+  "pydantic==2.10.3",
+  "pydantic-settings==2.7.0",
+  "prometheus-client==0.21.1",
+  "python-dotenv==1.0.1",
+  "pandas==2.2.3",
+  "pyarrow==18.1.0",
+  "scikit-learn==1.6.0",
+  "numpy==2.2.1"
+]
+
+[project.optional-dependencies]
+train = [
+  "torch==2.5.1",
+  "transformers==4.47.1",
+  "datasets==3.2.0",
+  "accelerate==1.2.1"
+]
+
+[dependency-groups]
+dev = [
+  "pytest==8.3.4",
+  "pytest-cov==6.0.0",
+  "httpx==0.28.1",
+  "mypy==1.14.1",
+  "black==24.10.0",
+  "isort==5.13.2",
+  "flake8==7.1.1",
+  "pylint==3.3.2"
+]
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.isort]
+profile = "black"
+line_length = 100
+src_paths = ["app", "tests", "dags"]
+
+[tool.pytest.ini_options]
+addopts = "--cov=app --cov-report=term-missing --cov-fail-under=70"
+testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_unreachable = true
+show_error_codes = true
+files = ["app", "tests", "dags"]
+
+[[tool.mypy.overrides]]
+module = ["datasets", "transformers", "torch", "torch.*"]
+ignore_missing_imports = true
+
+[tool.pylint.main]
+py-version = "3.11"
+ignore = ["venv", ".venv"]
+
+[tool.pylint.messages_control]
+enable = [
+  "useless-suppression",
+]
+disable = [
+  "missing-module-docstring",
+  "missing-class-docstring",
+  "missing-function-docstring",
+  "too-few-public-methods",
+]
+
+[tool.pylint.format]
+max-line-length = 100
+
+[tool.pylint.design]
+max-args = 7
+
+[build-system]
+requires = ["hatchling==1.27.0"]
+build-backend = "hatchling.build"
