@@ -1,127 +1,124 @@
-# Система фильтрации конфиденциальной информации
+# Confidential Information Filter
 
-Сервис для автоматической проверки текста и файлов перед отправкой во внешние каналы (LLM-чат, CRM, почта и т.д.).
+[![Python](https://img.shields.io/badge/python-3.11-blue.svg)](#)
+[![FastAPI](https://img.shields.io/badge/FastAPI-online%20service-009688.svg)](#)
+[![Airflow](https://img.shields.io/badge/Airflow-batch%20pipeline-017CEE.svg)](#)
+[![BERT](https://img.shields.io/badge/ML-BERT%20training-orange.svg)](#)
+[![Architecture](https://img.shields.io/badge/architecture-Clean%20Architecture-black.svg)](#)
 
-Проект сочетает:
-- онлайн-проверку (REST API),
-- batch-процессы (Airflow),
-- ML-пайплайн обучения BERT,
-- наблюдаемость (Prometheus/Grafana) и базовый CI/CD.
+Интеллектуальная система фильтрации конфиденциальной информации в онлайн- и batch-режимах.
 
-## Что это за проект
+## TL;DR
 
-Цель проекта: снижать риск утечки чувствительных данных за счет автоматической классификации контента и политик решений `allow/review/block`.
+- Что решает: предотвращает утечки чувствительных данных до отправки во внешние каналы.
+- Как работает: `rules + ML` -> решение `allow/review/block`.
+- Что уже есть: REST API, Airflow DAG, BERT pipeline, CI/CD, мониторинг-конфиги.
+- Где смотреть статус по требованиям: [Implementation Status](docs/IMPLEMENTATION_STATUS.md).
 
-MVP-идея:
-- правила ловят критичные паттерны (карты/паспорта/токены),
-- ML-модель помогает в неочевидных кейсах,
-- решение логируется и наблюдается через метрики.
+## Demo Flow
 
-## Что уже реализовано
+1. Пользователь отправляет текст/файл.
+2. Сервис проверяет контент правилами и моделью.
+3. Возвращает решение и пишет технический аудит.
+4. Batch слой считает drift/качество и публикует метрики.
 
-### Этап 1. Каркас и инженерная база
-- Репозиторий с историей коммитов.
-- Структура в стиле Clean Architecture.
-- `pyproject.toml` с pinned зависимостями.
-- Базовые команды в `Makefile`.
-- Шаблон переменных окружения `.env.example`.
+## Реализованные этапы
 
-### Этап 2. Онлайн-сервис
-- FastAPI-сервис с эндпоинтами:
-  - `GET /health`
-  - `POST /v1/assess`
-  - `POST /v1/metrics/drift`
-  - `GET /metrics`
-- OpenAPI/Swagger: `/docs`, `/openapi.json`.
-- Dockerfile и `docker-compose` для локального запуска.
-- CI/CD workflow с линтерами, тестами, сборкой и деплоем.
+- Этап 1: каркас проекта, Clean Architecture, quality tooling.
+- Этап 2: online REST-сервис + Docker + CI/CD.
+- Этап 3: batch-сервис (Airflow) + pipeline обучения BERT.
 
-### Этап 3. Batch и ML-пайплайн
-- Airflow DAG для batch-метрик на `DockerOperator`.
-- Airflow DAG для обучения модели.
-- Модуль обучения BERT в проекте (`app/training`).
-- Standalone-скрипт под Google Colab и отдельный remote-скрипт.
-- Сохранение артефактов модели и метрик (`val/test`).
+Подробная матрица: [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md)
 
-## Текущий результат обучения модели
-
-Папка артефактов: `bert_classifier/`
-
-Текущие метрики (последний запуск):
-- Validation F1: `0.6159`
-- Test F1: `0.6393`
-- Test ROC-AUC: `0.8317`
-
-## Архитектура проекта
+## Состав репозитория
 
 ```text
 app/
   domain/            # доменные модели и интерфейсы
   application/       # use cases
-  adapters/          # реализации детекторов
-  infrastructure/    # конфиги, метрики, тех. слой
-  api/               # транспортный слой (FastAPI)
+  adapters/          # правила детекции и адаптеры
+  infrastructure/    # конфиги, метрики, техслой
+  api/               # FastAPI endpoints
   batch/             # batch-вычисления
   training/          # обучение BERT
 
 configs/             # конфиги обучения
 dags/                # Airflow DAGs
 tests/               # unit + integration
-pipelines/           # standalone/remote pipeline scripts
+docs/                # ADR, C4, статус реализации
+pipelines/           # standalone scripts (remote/colab)
 infra/               # Prometheus/Grafana/Alertmanager
 ```
 
-## Быстрый старт (локально)
+## REST API
 
-### 1) Подготовка
+- `GET /health` — healthcheck
+- `POST /v1/assess` — оценка текста (`allow/review/block`)
+- `POST /v1/metrics/drift` — прием PSI/CSI
+- `GET /metrics` — Prometheus endpoint
+
+Swagger:
+- `http://localhost:8000/docs`
+- `http://localhost:8000/openapi.json`
+
+## Быстрый старт
+
+### 1. Установка
+
 ```bash
 cp .env.example .env
 uv sync --all-groups
 ```
 
-### 2) Запуск API
+### 2. Запуск API
+
 ```bash
 make run
 ```
 
-### 3) Проверка качества кода
+### 3. Проверка качества
+
 ```bash
 make lint
 make test
 ```
 
-## Запуск обучения BERT
+### 4. Локальный docker-stack
+
+```bash
+make docker-build
+make docker-up
+```
+
+## Обучение модели
 
 ### Внутри проекта
+
 ```bash
 make train-bert
 ```
 
-### На другом сервере
+### На удаленном сервере
+
 ```bash
 ./pipelines/train_bert_remote.sh
 ```
 
 ### В Google Colab
-Используйте standalone-файл:
-- `pipelines/bert_pipeline_standalone.py`
 
-Пример запуска в Colab:
 ```bash
 !python /content/bert_pipeline_standalone.py
 ```
 
-С кастомными путями:
-```bash
-!DATA_PATH=/content/ds.parquet OUTPUT_DIR=/content/bert_classifier python /content/bert_pipeline_standalone.py
-```
+Файл: `pipelines/bert_pipeline_standalone.py`
 
-## Batch-процессы
+## Batch (Airflow)
 
-- DAG drift-метрик: `dags/confidential_batch_dag.py`
-- DAG обучения: `dags/bert_training_dag.py`
+- Drift DAG: `dags/confidential_batch_dag.py`
+- Training DAG: `dags/bert_training_dag.py`
 
 Backfill пример:
+
 ```bash
 airflow dags backfill confidential_metrics_batch -s 2026-02-01 -e 2026-02-07
 ```
@@ -130,30 +127,32 @@ airflow dags backfill confidential_metrics_batch -s 2026-02-01 -e 2026-02-07
 
 Workflow: `.github/workflows/ci-cd.yml`
 
-Что делает pipeline:
-1. Устанавливает зависимости.
-2. Гоняет `black`, `isort`, `flake8`, `pylint`, `mypy`.
-3. Запускает тесты.
-4. Собирает Docker-образ.
-5. Пушит образ в registry.
-6. Выполняет деплой на удаленный сервер по SSH.
+Pipeline шаги:
+1. Установка зависимостей
+2. Линтеры (`black`, `isort`, `flake8`, `pylint`, `mypy`)
+3. Тесты
+4. Сборка контейнера
+5. Публикация образа
+6. Деплой на удаленный сервер
 
 ## Наблюдаемость
 
-- Метрики приложения: `/metrics`
-- Prometheus конфиг: `infra/prometheus/prometheus.yml`
+- Prometheus: `infra/prometheus/prometheus.yml`
 - Grafana dashboard: `infra/grafana/dashboards/confidential-overview.json`
 - Alertmanager: `infra/alertmanager.yml`
 
-## Документация по архитектуре
+## Документация архитектуры
 
-- ADR online: `docs/adr/ADR-001-online-service.md`
-- ADR batch: `docs/adr/ADR-002-batch-service.md`
+- ADR (online): `docs/adr/ADR-001-online-service.md`
+- ADR (batch): `docs/adr/ADR-002-batch-service.md`
 - C4: `docs/architecture/c4-container.puml`
 
-## Что осталось до полного production-ready
+## Roadmap
 
-- Прогнать полный quality gate в целевом окружении (`lint/test/coverage`) и зафиксировать отчет.
-- Довести CI/CD на реальном удаленном сервере с прод-секретами.
-- Уточнить пороги классификации и policy-логику на пилотной обратной связи.
-- Расширить MLOps-часть (версионирование моделей, registry, ретрейн-процедуры).
+- Подтвердить quality gate в целевом окружении с финальным coverage-отчетом.
+- Довести продовые секреты и деплой-процедуру до полноценного runbook.
+- Расширить MLOps: registry, versioning, controlled retrain.
+
+## Contribution
+
+См. [CONTRIBUTING.md](CONTRIBUTING.md)
