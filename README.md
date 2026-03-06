@@ -67,6 +67,8 @@ Swagger:
 
 ```bash
 cp .env.example .env
+# Установите uv (Astral). Например на macOS:
+# brew install uv
 uv sync --all-groups
 ```
 
@@ -74,6 +76,12 @@ uv sync --all-groups
 
 ```bash
 make run
+```
+
+Если вы запускаете проект без `uv`, то в активированном virtualenv можно стартовать так:
+
+```bash
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 ### 3. Проверка качества

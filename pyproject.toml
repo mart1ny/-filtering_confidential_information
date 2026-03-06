@@ -87,6 +87,9 @@ max-line-length = 100
 [tool.pylint.design]
 max-args = 7
 
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
 [build-system]
 requires = ["hatchling==1.27.0"]
 build-backend = "hatchling.build"
