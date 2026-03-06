@@ -11,6 +11,10 @@ class Settings(BaseSettings):
     app_port: int = Field(default=8000, alias="APP_PORT")
     risk_allow_threshold: float = Field(default=0.30, alias="RISK_ALLOW_THRESHOLD")
     risk_block_threshold: float = Field(default=0.70, alias="RISK_BLOCK_THRESHOLD")
+    detector_backend: str = Field(default="rules", alias="DETECTOR_BACKEND")
+    model_path: str = Field(default="bert_classifier/model", alias="MODEL_PATH")
+    model_name: str = Field(default="distilbert-base-uncased", alias="MODEL_NAME")
+    model_device: int = Field(default=-1, alias="MODEL_DEVICE")
 
 
 settings = Settings()

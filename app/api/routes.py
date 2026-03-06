@@ -2,7 +2,7 @@ from time import perf_counter
 
 from fastapi import APIRouter, Depends, FastAPI
 
-from app.adapters.detectors.rule_detector import DetectorThresholds, RuleBasedDetector
+from app.adapters.detectors.factory import build_text_detector
 from app.api.schemas import AssessRequest, AssessResponse, DriftMetricRequest, HealthResponse
 from app.application.use_cases.assess_text import AssessTextUseCase
 from app.infrastructure.config.settings import settings
@@ -15,12 +15,7 @@ from app.infrastructure.monitoring.metrics import (
 
 
 def get_use_case() -> AssessTextUseCase:
-    detector = RuleBasedDetector(
-        thresholds=DetectorThresholds(
-            allow=settings.risk_allow_threshold,
-            block=settings.risk_block_threshold,
-        )
-    )
+    detector = build_text_detector(settings)
     return AssessTextUseCase(detector=detector)
 
 
