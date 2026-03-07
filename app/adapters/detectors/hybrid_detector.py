@@ -14,4 +14,6 @@ class HybridDetector:
         model_result = self._model_detector.detect(text)
         if model_result.risk_score >= rules_result.risk_score:
             return model_result
-        return RiskAssessment(rules_result.decision, rules_result.risk_score, f"rules_{rules_result.reason}")
+        return RiskAssessment(
+            rules_result.decision, rules_result.risk_score, f"rules_{rules_result.reason}"
+        )

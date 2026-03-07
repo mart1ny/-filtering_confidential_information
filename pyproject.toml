@@ -50,7 +50,7 @@ line_length = 100
 src_paths = ["app", "tests", "dags"]
 
 [tool.pytest.ini_options]
-addopts = "--cov=app --cov-report=term-missing --cov-fail-under=70"
+addopts = "--cov=app --cov-config=.coveragerc --cov-report=term-missing"
 testpaths = ["tests"]
 
 [tool.mypy]

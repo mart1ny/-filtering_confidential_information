@@ -15,9 +15,9 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 import torch
-from torch.optim import AdamW
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, roc_auc_score
 from sklearn.model_selection import train_test_split
+from torch.optim import AdamW
 from torch.utils.data import DataLoader, Dataset, WeightedRandomSampler
 from tqdm import tqdm
 from transformers import (
@@ -82,7 +82,9 @@ def load_and_preprocess_data(file_path: str) -> pd.DataFrame:
     df = df.drop_duplicates(subset=[TEXT_COLUMN])
 
     if CONVERSATION_COLUMN in df.columns:
-        df["combined_text"] = df[TEXT_COLUMN].astype(str) + " " + df[CONVERSATION_COLUMN].fillna("").astype(str)
+        df["combined_text"] = (
+            df[TEXT_COLUMN].astype(str) + " " + df[CONVERSATION_COLUMN].fillna("").astype(str)
+        )
     else:
         df["combined_text"] = df[TEXT_COLUMN].astype(str)
 
@@ -137,7 +139,9 @@ def build_weighted_sampler(train_df: pd.DataFrame) -> WeightedRandomSampler:
     )
 
 
-def compute_metrics(preds: list[int], labels: list[int], probs: list[float] | None = None) -> Metrics:
+def compute_metrics(
+    preds: list[int], labels: list[int], probs: list[float] | None = None
+) -> Metrics:
     accuracy = float(accuracy_score(labels, preds))
     f1 = float(f1_score(labels, preds, zero_division=0))
     precision = float(precision_score(labels, preds, zero_division=0))

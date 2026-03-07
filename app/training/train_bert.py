@@ -24,7 +24,9 @@ from app.training.metrics import evaluate_classification, trainer_compute_metric
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Train BERT-style classifier for confidential text detection")
+    parser = argparse.ArgumentParser(
+        description="Train BERT-style classifier for confidential text detection"
+    )
     parser.add_argument("--data-path", default="dataset/ds.parquet")
     parser.add_argument("--output-dir", default="artifacts/bert_classifier")
     parser.add_argument("--model-name", default="xlm-roberta-base")

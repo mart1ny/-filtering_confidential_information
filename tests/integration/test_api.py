@@ -23,3 +23,11 @@ def test_drift_endpoint() -> None:
     response = client.post("/v1/metrics/drift", json={"psi": 0.1, "csi": 0.3})
     assert response.status_code == 200
     assert response.json()["status"] == "accepted"
+
+
+def test_metrics_endpoint_returns_prometheus_payload() -> None:
+    client = TestClient(app)
+    response = client.get("/metrics")
+    assert response.status_code == 200
+    assert "text/plain" in response.headers["content-type"]
+    assert "conf_filter_requests_total" in response.text

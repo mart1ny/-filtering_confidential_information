@@ -63,7 +63,9 @@ class BertDetector:
             model = AutoModelForSequenceClassification.from_pretrained(self._model_path)
         except Exception:
             tokenizer = AutoTokenizer.from_pretrained(self._model_name)
-            model = AutoModelForSequenceClassification.from_pretrained(self._model_name, num_labels=2)
+            model = AutoModelForSequenceClassification.from_pretrained(
+                self._model_name, num_labels=2
+            )
 
         if self._model_device >= 0 and torch.cuda.is_available():
             model.to(self._model_device)

@@ -15,7 +15,9 @@ class ClassificationMetrics:
     roc_auc: float
 
 
-def evaluate_classification(y_true: np.ndarray, y_prob: np.ndarray, threshold: float = 0.5) -> dict[str, float]:
+def evaluate_classification(
+    y_true: np.ndarray, y_prob: np.ndarray, threshold: float = 0.5
+) -> dict[str, float]:
     y_pred = (y_prob >= threshold).astype(int)
     metrics = ClassificationMetrics(
         accuracy=float(accuracy_score(y_true, y_pred)),

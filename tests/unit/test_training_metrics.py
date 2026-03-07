@@ -1,6 +1,6 @@
 import numpy as np
 
-from app.training.metrics import evaluate_classification, softmax
+from app.training.metrics import evaluate_classification, softmax, trainer_compute_metrics
 
 
 def test_softmax_rows_sum_to_one() -> None:
@@ -17,3 +17,21 @@ def test_evaluate_classification_outputs_required_metrics() -> None:
 
     assert set(metrics.keys()) == {"accuracy", "precision", "recall", "f1", "roc_auc"}
     assert metrics["f1"] > 0.0
+
+
+def test_evaluate_classification_returns_zero_auc_for_single_class() -> None:
+    y_true = np.array([1, 1, 1])
+    y_prob = np.array([0.7, 0.8, 0.9])
+
+    metrics = evaluate_classification(y_true, y_prob)
+
+    assert metrics["roc_auc"] == 0.0
+
+
+def test_trainer_compute_metrics_uses_softmax_positive_class() -> None:
+    logits = np.array([[0.0, 4.0], [3.0, 0.0]])
+    labels = np.array([1, 0])
+
+    metrics = trainer_compute_metrics((logits, labels))
+
+    assert metrics["accuracy"] == 1.0

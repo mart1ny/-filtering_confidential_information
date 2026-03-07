@@ -28,7 +28,9 @@ def health() -> HealthResponse:
 
 
 @router.post("/v1/assess", response_model=AssessResponse)
-def assess(request: AssessRequest, use_case: AssessTextUseCase = Depends(get_use_case)) -> AssessResponse:
+def assess(
+    request: AssessRequest, use_case: AssessTextUseCase = Depends(get_use_case)
+) -> AssessResponse:
     started = perf_counter()
     assessment = use_case.execute(request.text)
     REQUEST_COUNT.labels(endpoint="assess", decision=assessment.decision.value).inc()
@@ -53,7 +55,6 @@ def ingest_drift(payload: DriftMetricRequest) -> dict[str, str]:
 @router.get("/metrics")
 def metrics() -> object:
     return metrics_response()
-
 
 
 def build_app() -> FastAPI:
