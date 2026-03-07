@@ -133,15 +133,13 @@ airflow dags backfill confidential_metrics_batch -s 2026-02-01 -e 2026-02-07
 
 ## CI/CD
 
-Workflow: `.github/workflows/ci-cd.yml`
+Workflow: `.github/workflows/ci.yml`
 
 Pipeline шаги:
 1. Установка зависимостей
-2. Линтеры (`black`, `isort`, `flake8`, `pylint`, `mypy`)
-3. Тесты
-4. Сборка контейнера
-5. Публикация образа
-6. Деплой на удаленный сервер
+2. Линтеры (`black`, `isort`, `flake8`)
+3. Запуск тестов с coverage gate (`>= 90%`)
+4. Quality Gate (обязательная проверка перед merge)
 
 ## Наблюдаемость
 
