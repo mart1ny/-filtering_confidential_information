@@ -1,8 +1,9 @@
+from app.domain.interfaces import TextDetector
 from app.domain.models import Decision, RiskAssessment
 
 
 class HybridDetector:
-    def __init__(self, rules_detector, model_detector) -> None:
+    def __init__(self, rules_detector: TextDetector, model_detector: TextDetector) -> None:
         self._rules_detector = rules_detector
         self._model_detector = model_detector
 

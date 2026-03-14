@@ -1,5 +1,6 @@
 services:
   app:
+    image: ${APP_IMAGE:-confidential-filter-service:local}
     build: .
     env_file:
       - .env

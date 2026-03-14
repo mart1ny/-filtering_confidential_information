@@ -137,9 +137,39 @@ Workflow: `.github/workflows/ci.yml`
 
 Pipeline шаги:
 1. Установка зависимостей
-2. Линтеры (`black`, `isort`, `flake8`)
+2. Линтеры (`black`, `isort`, `flake8`, `pylint`, `mypy`)
 3. Запуск тестов с coverage gate (`>= 90%`)
 4. Quality Gate (обязательная проверка перед merge)
+5. Сборка и push образа в GHCR (`latest` + `${GITHUB_SHA}`)
+6. Push-based deploy на удаленный сервер через SSH:
+   - передача артефактов модели в `bert_classifier/model`,
+   - генерация `.env` на сервере из GitHub Secrets,
+   - `docker compose pull app && docker compose up -d --remove-orphans`.
+
+### Required GitHub Secrets для deploy
+
+- `DEPLOY_HOST`
+- `DEPLOY_USER`
+- `DEPLOY_SSH_KEY`
+- `DEPLOY_PATH`
+- `GHCR_USERNAME`
+- `GHCR_TOKEN`
+- `APP_NAME`
+- `APP_ENV`
+- `APP_HOST`
+- `APP_PORT`
+- `RISK_ALLOW_THRESHOLD`
+- `RISK_BLOCK_THRESHOLD`
+- `DETECTOR_BACKEND`
+- `MODEL_NAME`
+- `MODEL_DEVICE`
+- `SECRET_KEY`
+- `TELEGRAM_BOT_TOKEN`
+- `TELEGRAM_CHAT_ID`
+- `SMTP_HOST`
+- `SMTP_PORT`
+- `SMTP_USERNAME`
+- `SMTP_PASSWORD`
 
 ## Наблюдаемость
 
