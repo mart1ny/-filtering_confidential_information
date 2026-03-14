@@ -102,8 +102,8 @@ jobs:
           context: .
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}:${{ github.sha }}
-            ghcr.io/${{ github.repository }}:latest
+            ghcr.io/${{ github.repository_owner }}/confidential-filter-service:${{ github.sha }}
+            ghcr.io/${{ github.repository_owner }}/confidential-filter-service:latest
 
   transfer-model:
     name: Transfer Model Artifacts
@@ -144,7 +144,7 @@ jobs:
             APP_ENV=${{ secrets.APP_ENV }}
             APP_HOST=${{ secrets.APP_HOST }}
             APP_PORT=${{ secrets.APP_PORT }}
-            APP_IMAGE=ghcr.io/${{ github.repository }}:latest
+            APP_IMAGE=ghcr.io/${{ github.repository_owner }}/confidential-filter-service:latest
             RISK_ALLOW_THRESHOLD=${{ secrets.RISK_ALLOW_THRESHOLD }}
             RISK_BLOCK_THRESHOLD=${{ secrets.RISK_BLOCK_THRESHOLD }}
             DETECTOR_BACKEND=${{ secrets.DETECTOR_BACKEND }}
