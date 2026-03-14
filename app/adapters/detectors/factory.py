@@ -1,10 +1,11 @@
 from app.adapters.detectors.hybrid_detector import HybridDetector
 from app.adapters.detectors.model_detector import BertDetector
 from app.adapters.detectors.rule_detector import DetectorThresholds, RuleBasedDetector
+from app.domain.interfaces import TextDetector
 from app.infrastructure.config.settings import Settings
 
 
-def build_text_detector(app_settings: Settings):
+def build_text_detector(app_settings: Settings) -> TextDetector:
     thresholds = DetectorThresholds(
         allow=app_settings.risk_allow_threshold,
         block=app_settings.risk_block_threshold,
@@ -22,7 +23,7 @@ def build_text_detector(app_settings: Settings):
             model_name=app_settings.model_name,
             model_device=app_settings.model_device,
         )
-    except Exception:
+    except RuntimeError:
         return rules_detector
 
     if backend == "bert":

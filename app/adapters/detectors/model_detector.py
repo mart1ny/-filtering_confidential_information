@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Any
 
 from app.adapters.detectors.rule_detector import DetectorThresholds
 from app.domain.models import Decision, RiskAssessment
@@ -6,9 +7,9 @@ from app.domain.models import Decision, RiskAssessment
 
 @dataclass
 class _ModelRuntime:
-    tokenizer: object
-    model: object
-    torch: object
+    tokenizer: Any
+    model: Any
+    torch: Any
 
 
 class BertDetector:

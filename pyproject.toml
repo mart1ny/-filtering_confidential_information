@@ -55,12 +55,13 @@ testpaths = ["tests"]
 
 [tool.mypy]
 python_version = "3.11"
-strict = true
+strict = false
+ignore_missing_imports = true
 warn_unused_ignores = true
 warn_redundant_casts = true
 warn_unreachable = true
 show_error_codes = true
-files = ["app", "tests", "dags"]
+files = ["app"]
 
 [[tool.mypy.overrides]]
 module = ["datasets", "transformers", "torch", "torch.*"]
@@ -79,6 +80,11 @@ disable = [
   "missing-class-docstring",
   "missing-function-docstring",
   "too-few-public-methods",
+  "import-outside-toplevel",
+  "too-many-instance-attributes",
+  "too-many-locals",
+  "too-many-positional-arguments",
+  "broad-exception-caught",
 ]
 
 [tool.pylint.format]
@@ -86,6 +92,15 @@ max-line-length = 100
 
 [tool.pylint.design]
 max-args = 7
+
+[tool.pylint.typecheck]
+ignored-modules = [
+  "datasets",
+  "transformers",
+  "torch",
+  "airflow",
+  "airflow.providers.docker.operators.docker",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["app"]

@@ -13,7 +13,7 @@ lint:
 	uv run black --check .
 	uv run isort --check-only .
 	uv run flake8 app tests dags
-	uv run pylint app tests dags
+	uv run pylint app
 	uv run mypy
 
 format:

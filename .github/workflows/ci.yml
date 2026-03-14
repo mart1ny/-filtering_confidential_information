@@ -32,10 +32,14 @@ jobs:
         run: uv sync --all-groups
 
       - name: Run linters
+        env:
+          PYLINTHOME: .pylint.d
         run: |
           uv run black --check .
           uv run isort --check-only .
           uv run flake8 app tests dags
+          uv run pylint app
+          uv run mypy
 
   test:
     name: Tests
