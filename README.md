@@ -142,8 +142,9 @@ Pipeline шаги:
 4. Quality Gate (обязательная проверка перед merge)
 5. Сборка и push образа в GHCR (`latest` + `${GITHUB_SHA}`)
 6. Push-based deploy на удаленный сервер через SSH:
-   - передача артефактов модели в `bert_classifier/model`,
+   - скачивание модели (`MODEL_NAME`) в CI и передача артефактов в `bert_classifier/model`,
    - генерация `.env` на сервере из GitHub Secrets,
+   - генерация `docker-compose.yml` на сервере,
    - `docker compose pull app && docker compose up -d --remove-orphans`.
 
 ### Required GitHub Secrets для deploy

@@ -8,7 +8,7 @@ RUN pip install --no-cache-dir uv==0.5.11
 
 COPY pyproject.toml ./
 COPY README.md ./
-RUN uv sync --no-dev
+RUN uv sync --no-dev --extra train
 
 COPY app ./app
 
