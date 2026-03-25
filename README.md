@@ -69,7 +69,7 @@ Swagger:
 cp .env.example .env
 # Установите uv (Astral). Например на macOS:
 # brew install uv
-uv sync --all-groups
+uv sync --frozen --all-groups
 ```
 
 ### 2. Запуск API

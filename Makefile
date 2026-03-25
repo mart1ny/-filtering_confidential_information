@@ -1,7 +1,7 @@
 .PHONY: sync run test lint format docker-build docker-up train-bert train-bert-remote
 
 sync:
-	uv sync --all-groups
+	uv sync --frozen --all-groups
 
 run:
 	uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload

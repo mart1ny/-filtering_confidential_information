@@ -41,9 +41,14 @@ def test_factory_falls_back_to_rules_on_unknown_backend() -> None:
 
 
 def test_factory_falls_back_to_rules_when_model_init_fails(monkeypatch) -> None:
-    def broken_init(  # type: ignore[no-untyped-def]
-        self, thresholds, model_path, model_name, model_device
-    ):
+    def broken_init(
+        self: object,
+        thresholds: tuple[float, float],
+        model_path: str,
+        model_name: str,
+        model_device: int,
+    ) -> None:
+        _ = (self, thresholds, model_path, model_name, model_device)
         raise RuntimeError("broken")
 
     monkeypatch.setattr(BertDetector, "__init__", broken_init)
