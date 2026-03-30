@@ -15,7 +15,7 @@ with DAG(
         task_id="train_bert_classifier",
         image="ghcr.io/your-org/confidential-filter-service:latest",
         api_version="auto",
-        auto_remove=True,
+        auto_remove="force",
         command=(
             "uv run --extra train python -m app.training.train_bert "
             "--data-path dataset/ds.parquet "
