@@ -32,6 +32,7 @@
 - [x] DockerOperator
 - [x] Идемпотентность
 - [x] Backfill сценарий
+- [x] Совместимость DAG с Airflow 2.10 (`auto_remove="force"`)
 
 ### Monitoring
 - [x] `/metrics` endpoint
@@ -46,4 +47,3 @@
 - `val_metrics.json`
 - `test_metrics.json`
 - `model/`
-
