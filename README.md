@@ -124,11 +124,26 @@ make train-bert
 
 - Drift DAG: `dags/confidential_batch_dag.py`
 - Training DAG: `dags/bert_training_dag.py`
+- Для локального запуска Airflow: `docker-compose.airflow.yml`
 
-Backfill пример:
+Запуск Airflow локально:
 
 ```bash
-airflow dags backfill confidential_metrics_batch -s 2026-02-01 -e 2026-02-07
+make airflow-up
+# UI: http://localhost:8080
+# login: airflow / airflow
+```
+
+Backfill пример (через scheduler-контейнер):
+
+```bash
+make airflow-backfill
+```
+
+Проверка артефактов после backfill:
+
+```bash
+docker run --rm -v confidential_drift_data:/data busybox ls -la /data
 ```
 
 ## CI/CD
