@@ -81,7 +81,7 @@ jobs:
         run: echo "Lint and tests passed with coverage >= 90%"
 
   build-and-push-image:
-    name: Build and Push Image
+    name: Build and Push Backend Image
     runs-on: ubuntu-latest
     needs: [quality-gate]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -110,6 +110,37 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository_owner }}/confidential-filter-service:${{ github.sha }}
             ghcr.io/${{ github.repository_owner }}/confidential-filter-service:latest
+
+  build-and-push-frontend-image:
+    name: Build and Push Frontend Image
+    runs-on: ubuntu-latest
+    needs: [quality-gate]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/confidential-filter-frontend:${{ github.sha }}
+            ghcr.io/${{ github.repository_owner }}/confidential-filter-frontend:latest
 
   transfer-model:
     name: Transfer Model Artifacts
@@ -153,7 +184,7 @@ jobs:
   deploy:
     name: Deploy to Remote Server
     runs-on: ubuntu-latest
-    needs: [build-and-push-image, transfer-model]
+    needs: [build-and-push-image, build-and-push-frontend-image, transfer-model]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
       - name: Deploy via SSH
@@ -173,6 +204,8 @@ jobs:
             APP_HOST=${{ secrets.APP_HOST }}
             APP_PORT=${{ secrets.APP_PORT }}
             APP_IMAGE=ghcr.io/${{ github.repository_owner }}/confidential-filter-service:latest
+            FRONTEND_PORT=${{ secrets.FRONTEND_PORT }}
+            FRONTEND_IMAGE=ghcr.io/${{ github.repository_owner }}/confidential-filter-frontend:latest
             RISK_ALLOW_THRESHOLD=${{ secrets.RISK_ALLOW_THRESHOLD }}
             RISK_BLOCK_THRESHOLD=${{ secrets.RISK_BLOCK_THRESHOLD }}
             DETECTOR_BACKEND=${{ secrets.DETECTOR_BACKEND }}
@@ -198,7 +231,14 @@ jobs:
                 volumes:
                   - ./bert_classifier/model:/srv/app/bert_classifier/model:ro
                 restart: unless-stopped
+              frontend:
+                image: ghcr.io/${{ github.repository_owner }}/confidential-filter-frontend:latest
+                depends_on:
+                  - app
+                ports:
+                  - "${FRONTEND_PORT:-5173}:80"
+                restart: unless-stopped
             EOF
             echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u "${{ secrets.GHCR_USERNAME }}" --password-stdin
-            docker compose pull app
+            docker compose pull app frontend
             docker compose up -d --remove-orphans

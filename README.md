@@ -160,7 +160,7 @@ Pipeline шаги:
    - скачивание модели (`MODEL_NAME`) в CI и передача артефактов в `bert_classifier/model`,
    - генерация `.env` на сервере из GitHub Secrets,
    - генерация `docker-compose.yml` на сервере,
-   - `docker compose pull app && docker compose up -d --remove-orphans`.
+   - `docker compose pull app frontend && docker compose up -d --remove-orphans`.
 
 ### Required GitHub Secrets для deploy
 
@@ -174,6 +174,7 @@ Pipeline шаги:
 - `APP_ENV`
 - `APP_HOST`
 - `APP_PORT`
+- `FRONTEND_PORT` (например `5173`)
 - `RISK_ALLOW_THRESHOLD`
 - `RISK_BLOCK_THRESHOLD`
 - `DETECTOR_BACKEND`
