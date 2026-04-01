@@ -25,12 +25,14 @@ def test_factory_builds_rules_backend() -> None:
     assert isinstance(detector, RuleBasedDetector)
 
 
-def test_factory_builds_bert_backend() -> None:
+def test_factory_builds_bert_backend(monkeypatch) -> None:
+    monkeypatch.setattr(BertDetector, "warmup", lambda self: None)
     detector = build_text_detector(build_settings("bert"))
     assert isinstance(detector, BertDetector)
 
 
-def test_factory_builds_hybrid_backend() -> None:
+def test_factory_builds_hybrid_backend(monkeypatch) -> None:
+    monkeypatch.setattr(BertDetector, "warmup", lambda self: None)
     detector = build_text_detector(build_settings("hybrid"))
     assert isinstance(detector, HybridDetector)
 
