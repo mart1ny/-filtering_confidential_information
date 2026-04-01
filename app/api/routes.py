@@ -1,3 +1,4 @@
+from functools import lru_cache
 from time import perf_counter
 
 from fastapi import APIRouter, Depends, FastAPI
@@ -14,6 +15,7 @@ from app.infrastructure.monitoring.metrics import (
 )
 
 
+@lru_cache(maxsize=1)
 def get_use_case() -> AssessTextUseCase:
     detector = build_text_detector(settings)
     return AssessTextUseCase(detector=detector)
