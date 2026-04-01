@@ -7,6 +7,15 @@ services:
     ports:
       - "8000:8000"
 
+  frontend:
+    image: ${FRONTEND_IMAGE:-confidential-filter-frontend:local}
+    build:
+      context: ./frontend
+    depends_on:
+      - app
+    ports:
+      - "${FRONTEND_PORT:-5173}:80"
+
   prometheus:
     image: prom/prometheus:v2.54.1
     volumes:
