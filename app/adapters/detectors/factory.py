@@ -23,6 +23,8 @@ def build_text_detector(app_settings: Settings) -> TextDetector:
             model_name=app_settings.model_name,
             model_device=app_settings.model_device,
         )
+        # Validate model runtime at startup to avoid per-request failures.
+        model_detector.warmup()
     except RuntimeError:
         return rules_detector
 

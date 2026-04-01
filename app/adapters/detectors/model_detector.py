@@ -26,6 +26,9 @@ class BertDetector:
         self._model_device = model_device
         self._runtime: _ModelRuntime | None = None
 
+    def warmup(self) -> None:
+        self._ensure_runtime()
+
     def detect(self, text: str) -> RiskAssessment:
         normalized = text.strip()
         if not normalized:
@@ -62,11 +65,11 @@ class BertDetector:
         try:
             tokenizer = AutoTokenizer.from_pretrained(self._model_path)
             model = AutoModelForSequenceClassification.from_pretrained(self._model_path)
-        except Exception:
-            tokenizer = AutoTokenizer.from_pretrained(self._model_name)
-            model = AutoModelForSequenceClassification.from_pretrained(
-                self._model_name, num_labels=2
-            )
+        except Exception as error:
+            raise RuntimeError(
+                "Could not load classification model from MODEL_PATH. "
+                "Provide a valid fine-tuned checkpoint."
+            ) from error
 
         if self._model_device >= 0 and torch.cuda.is_available():
             model.to(self._model_device)

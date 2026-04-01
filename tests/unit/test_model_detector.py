@@ -142,7 +142,7 @@ def test_ensure_runtime_raises_when_dependencies_are_missing(
         detector._ensure_runtime()
 
 
-def test_ensure_runtime_falls_back_to_model_name_and_caches(
+def test_ensure_runtime_raises_when_local_model_cannot_be_loaded(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     detector = BertDetector(
@@ -178,14 +178,9 @@ def test_ensure_runtime_falls_back_to_model_name_and_caches(
     monkeypatch.setitem(__import__("sys").modules, "transformers", transformers_module)
     monkeypatch.setitem(__import__("sys").modules, "torch", torch_module)
 
-    runtime_first = detector._ensure_runtime()
-    runtime_second = detector._ensure_runtime()
+    with pytest.raises(RuntimeError, match="Could not load classification model"):
+        detector._ensure_runtime()
 
-    assert runtime_first is runtime_second
-    assert fake_model.sent_to_device == 0
-    assert fake_model.eval_called is True
-    assert calls == [
-        ("tokenizer", "missing-local", {}),
-        ("tokenizer", "remote-model", {}),
-        ("model", "remote-model", {"num_labels": 2}),
-    ]
+    assert fake_model.sent_to_device is None
+    assert fake_model.eval_called is False
+    assert calls == [("tokenizer", "missing-local", {})]
