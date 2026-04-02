@@ -40,7 +40,7 @@ with DAG(
         api_version="auto",
         auto_remove="force",
         command=(
-            "uv run --extra train python -m app.training.train_bert "
+            "python -m app.training.train_bert "
             f"--data-path {dataset_path} "
             f"--output-dir {artifacts_mount_target}/bert_classifier"
         ),
