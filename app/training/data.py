@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import os
+from dataclasses import dataclass
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from urllib.parse import urlparse
 
-import boto3
 import pandas as pd
 from sklearn.model_selection import GroupShuffleSplit
 
@@ -53,6 +52,14 @@ def _resolve_dataset_path(path: str) -> str:
 
 
 def _download_from_s3(uri: str) -> str:
+    try:
+        import boto3
+    except ModuleNotFoundError as exc:
+        raise ModuleNotFoundError(
+            "boto3 is required to load dataset from S3 URI. "
+            "Install training dependencies (`uv sync --extra train`)."
+        ) from exc
+
     parsed = urlparse(uri)
     bucket = parsed.netloc
     key = parsed.path.lstrip("/")
