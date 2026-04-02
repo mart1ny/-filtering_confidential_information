@@ -23,7 +23,8 @@ with DAG(
         "TRAIN_DATASET_MOUNT_TARGET", "/var/lib/confidential-dataset"
     )
     dataset_file_name = os.environ.get("TRAIN_DATASET_FILE", "ds.parquet")
-    dataset_path = f"{dataset_mount_target}/{dataset_file_name}"
+    dataset_uri = os.environ.get("TRAIN_DATASET_URI")
+    dataset_path = dataset_uri or f"{dataset_mount_target}/{dataset_file_name}"
 
     artifacts_mount_type = os.environ.get("TRAIN_ARTIFACTS_MOUNT_TYPE", "volume")
     artifacts_mount_source = os.environ.get(
@@ -33,6 +34,35 @@ with DAG(
     artifacts_mount_target = os.environ.get(
         "TRAIN_ARTIFACTS_MOUNT_TARGET", "/var/lib/confidential-artifacts"
     )
+    mounts = [
+        Mount(
+            source=artifacts_mount_source,
+            target=artifacts_mount_target,
+            type=artifacts_mount_type,
+        ),
+    ]
+    if not dataset_path.startswith("s3://"):
+        mounts.insert(
+            0,
+            Mount(
+                source=dataset_mount_source,
+                target=dataset_mount_target,
+                type=dataset_mount_type,
+                read_only=True,
+            ),
+        )
+    training_env = {"APP_ENV": "training"}
+    for key in (
+        "AWS_ACCESS_KEY_ID",
+        "AWS_SECRET_ACCESS_KEY",
+        "AWS_SESSION_TOKEN",
+        "AWS_REGION",
+        "AWS_DEFAULT_REGION",
+        "S3_ENDPOINT_URL",
+    ):
+        value = os.environ.get(key)
+        if value:
+            training_env[key] = value
 
     train_model = DockerOperator(
         task_id="train_bert_classifier",
@@ -47,22 +77,8 @@ with DAG(
         docker_url=docker_url,
         network_mode=docker_network,
         mount_tmp_dir=False,
-        mounts=[
-            Mount(
-                source=dataset_mount_source,
-                target=dataset_mount_target,
-                type=dataset_mount_type,
-                read_only=True,
-            ),
-            Mount(
-                source=artifacts_mount_source,
-                target=artifacts_mount_target,
-                type=artifacts_mount_type,
-            ),
-        ],
-        environment={
-            "APP_ENV": "training",
-        },
+        mounts=mounts,
+        environment=training_env,
     )
 
     train_model

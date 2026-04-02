@@ -25,7 +25,8 @@ train = [
   "torch==2.5.1",
   "transformers==4.47.1",
   "datasets==3.2.0",
-  "accelerate==1.2.1"
+  "accelerate==1.2.1",
+  "boto3==1.35.99"
 ]
 
 [dependency-groups]

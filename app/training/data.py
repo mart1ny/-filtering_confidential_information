@@ -1,7 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import os
+from pathlib import Path
+from tempfile import NamedTemporaryFile
+from urllib.parse import urlparse
 
+import boto3
 import pandas as pd
 from sklearn.model_selection import GroupShuffleSplit
 
@@ -25,7 +30,7 @@ REQUIRED_COLUMNS = {
 
 
 def load_dataset(path: str) -> pd.DataFrame:
-    dataset = pd.read_parquet(path)
+    dataset = pd.read_parquet(_resolve_dataset_path(path))
     missing = REQUIRED_COLUMNS.difference(dataset.columns)
     if missing:
         raise ValueError(f"Dataset is missing required columns: {sorted(missing)}")
@@ -35,6 +40,39 @@ def load_dataset(path: str) -> pd.DataFrame:
     normalized["text"] = normalized["text"].astype(str)
     normalized["is_contains_confidential"] = normalized["is_contains_confidential"].astype(int)
     return normalized
+
+
+def _resolve_dataset_path(path: str) -> str:
+    if path.startswith("s3://"):
+        return _download_from_s3(path)
+
+    local_path = Path(path)
+    if not local_path.exists():
+        raise FileNotFoundError(f"Dataset file does not exist: {path}")
+    return str(local_path)
+
+
+def _download_from_s3(uri: str) -> str:
+    parsed = urlparse(uri)
+    bucket = parsed.netloc
+    key = parsed.path.lstrip("/")
+    if not bucket or not key:
+        raise ValueError(f"Invalid S3 dataset URI: {uri}")
+
+    with NamedTemporaryFile(prefix="train_dataset_", suffix=".parquet", delete=False) as tmp_file:
+        local_path = tmp_file.name
+
+    endpoint_url = os.environ.get("S3_ENDPOINT_URL")
+    region_name = os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION")
+    client_kwargs = {}
+    if endpoint_url:
+        client_kwargs["endpoint_url"] = endpoint_url
+    if region_name:
+        client_kwargs["region_name"] = region_name
+
+    s3 = boto3.client("s3", **client_kwargs)
+    s3.download_file(bucket, key, local_path)
+    return local_path
 
 
 def split_by_group(
