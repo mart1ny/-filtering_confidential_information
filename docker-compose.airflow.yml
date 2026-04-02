@@ -52,7 +52,8 @@ services:
       --firstname Air
       --lastname Flow
       --role Admin
-      --email airflow@example.com"
+      --email airflow@example.com ||
+      echo 'Airflow user already exists, skipping create'"
     volumes:
       - ./dags:/opt/airflow/dags
       - airflow_logs:/opt/airflow/logs
