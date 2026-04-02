@@ -5,6 +5,13 @@ from airflow import DAG
 from airflow.providers.docker.operators.docker import DockerOperator
 from docker.types import Mount
 
+
+def _normalize_mount_type(source: str, configured_type: str) -> str:
+    if source.startswith("/"):
+        return "bind"
+    return configured_type
+
+
 with DAG(
     dag_id="bert_training_pipeline",
     start_date=datetime(2026, 1, 1),
@@ -34,6 +41,8 @@ with DAG(
     artifacts_mount_target = os.environ.get(
         "TRAIN_ARTIFACTS_MOUNT_TARGET", "/var/lib/confidential-artifacts"
     )
+    dataset_mount_type = _normalize_mount_type(dataset_mount_source, dataset_mount_type)
+    artifacts_mount_type = _normalize_mount_type(artifacts_mount_source, artifacts_mount_type)
     mounts = [
         Mount(
             source=artifacts_mount_source,
