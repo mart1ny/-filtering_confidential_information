@@ -24,6 +24,7 @@ with DAG(
     compute_drift = DockerOperator(
         task_id="compute_drift",
         image=app_image,
+        user="0:0",
         api_version="auto",
         auto_remove="force",
         command=(
