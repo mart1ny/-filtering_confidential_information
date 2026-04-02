@@ -118,6 +118,41 @@ def test_load_dataset_from_s3_uri(monkeypatch: pytest.MonkeyPatch, tmp_path: Pat
     assert calls["kwargs"] == {"endpoint_url": "https://s3.example.test", "region_name": "ru-1"}
 
 
+def test_load_dataset_from_s3_single_slash_uri(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    source = tmp_path / "source.parquet"
+    frame = pd.DataFrame(
+        {
+            "id": [1],
+            "text": ["hello"],
+            "source": ["s"],
+            "conversation": ["c"],
+            "prompt_lang": ["en"],
+            "answer_lang": ["en"],
+            "is_contains_confidential": [1],
+        }
+    )
+    frame.to_parquet(source)
+
+    calls: dict[str, object] = {}
+
+    class FakeS3Client:
+        def download_file(self, bucket: str, key: str, target: str) -> None:
+            calls["bucket"] = bucket
+            calls["key"] = key
+            Path(target).write_bytes(source.read_bytes())
+
+    fake_boto3 = ModuleType("boto3")
+    fake_boto3.client = lambda *_args, **_kwargs: FakeS3Client()  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "boto3", fake_boto3)
+
+    loaded = load_dataset("s3:/bucket-name/path/to/ds.parquet")
+    assert loaded.shape[0] == 1
+    assert calls["bucket"] == "bucket-name"
+    assert calls["key"] == "path/to/ds.parquet"
+
+
 def test_load_dataset_from_s3_without_boto3(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delitem(sys.modules, "boto3", raising=False)
     real_import = builtins.__import__

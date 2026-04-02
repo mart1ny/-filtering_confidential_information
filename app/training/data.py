@@ -44,6 +44,8 @@ def load_dataset(path: str) -> pd.DataFrame:
 def _resolve_dataset_path(path: str) -> str:
     if path.startswith("s3://"):
         return _download_from_s3(path)
+    if path.startswith("s3:/"):
+        return _download_from_s3(path.replace("s3:/", "s3://", 1))
 
     local_path = Path(path)
     if not local_path.exists():
