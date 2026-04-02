@@ -146,6 +146,24 @@ make airflow-backfill
 docker run --rm -v confidential_drift_data:/data busybox ls -la /data
 ```
 
+Запуск на сервере:
+
+```bash
+# 1) укажите продовый образ
+export APP_IMAGE=ghcr.io/<org>/confidential-filter-service:latest
+
+# 2) если храните данные на хосте, используйте bind mount
+export DRIFT_MOUNT_TYPE=bind
+export DRIFT_MOUNT_SOURCE=/srv/confidential/drift
+export TRAIN_DATASET_MOUNT_TYPE=bind
+export TRAIN_DATASET_MOUNT_SOURCE=/srv/confidential/dataset
+export TRAIN_ARTIFACTS_MOUNT_TYPE=bind
+export TRAIN_ARTIFACTS_MOUNT_SOURCE=/srv/confidential/artifacts
+
+# 3) поднимите Airflow
+docker compose -f docker-compose.airflow.yml up -d
+```
+
 ## CI/CD
 
 Workflow: `.github/workflows/ci.yml`
@@ -187,6 +205,27 @@ Pipeline шаги:
 - `SMTP_PORT`
 - `SMTP_USERNAME`
 - `SMTP_PASSWORD`
+
+### Дополнительно для Airflow deploy (опционально)
+
+Если не задавать эти secrets, CI сам применит рабочие дефолты и создаст нужные каталоги/датасет на сервере:
+- Airflow UI: `airflow / airflow`
+- mount-режим: `bind`
+- dataset: `${DEPLOY_PATH}/dataset/ds.parquet` (файл загружается из репозитория)
+
+При желании можно переопределить:
+- `AIRFLOW_WEB_USER`
+- `AIRFLOW_WEB_PASSWORD`
+- `DRIFT_MOUNT_TYPE`
+- `DRIFT_MOUNT_SOURCE`
+- `DRIFT_MOUNT_TARGET`
+- `TRAIN_DATASET_MOUNT_TYPE`
+- `TRAIN_DATASET_MOUNT_SOURCE`
+- `TRAIN_DATASET_MOUNT_TARGET`
+- `TRAIN_DATASET_FILE`
+- `TRAIN_ARTIFACTS_MOUNT_TYPE`
+- `TRAIN_ARTIFACTS_MOUNT_SOURCE`
+- `TRAIN_ARTIFACTS_MOUNT_TARGET`
 
 ## Наблюдаемость
 

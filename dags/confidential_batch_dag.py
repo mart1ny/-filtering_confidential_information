@@ -14,6 +14,12 @@ with DAG(
     tags=["ml", "drift", "idempotent"],
 ) as dag:
     app_image = os.environ.get("APP_IMAGE", "confidential-filter-service:local")
+    docker_url = os.environ.get("DOCKER_URL", "unix://var/run/docker.sock")
+    docker_network = os.environ.get("DOCKER_NETWORK_MODE", "bridge")
+
+    drift_mount_type = os.environ.get("DRIFT_MOUNT_TYPE", "volume")
+    drift_mount_source = os.environ.get("DRIFT_MOUNT_SOURCE", "confidential_drift_data")
+    drift_mount_target = os.environ.get("DRIFT_MOUNT_TARGET", "/var/lib/confidential-drift")
 
     compute_drift = DockerOperator(
         task_id="compute_drift",
@@ -23,16 +29,16 @@ with DAG(
         command=(
             "python -m app.batch.runner "
             "--run-date {{ ds }} "
-            "--output-dir /var/lib/confidential-drift"
+            f"--output-dir {drift_mount_target}"
         ),
-        docker_url="unix://var/run/docker.sock",
-        network_mode="bridge",
+        docker_url=docker_url,
+        network_mode=docker_network,
         mount_tmp_dir=False,
         mounts=[
             Mount(
-                source="confidential_drift_data",
-                target="/var/lib/confidential-drift",
-                type="volume",
+                source=drift_mount_source,
+                target=drift_mount_target,
+                type=drift_mount_type,
             ),
         ],
         environment={

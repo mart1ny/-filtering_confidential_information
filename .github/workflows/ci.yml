@@ -187,18 +187,63 @@ jobs:
     needs: [build-and-push-image, build-and-push-frontend-image, transfer-model]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Upload Airflow files to remote server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          source: "dags/*,docker-compose.airflow.yml,dataset/ds.parquet"
+          target: "${{ secrets.DEPLOY_PATH }}"
+
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.2.0
+        env:
+          AIRFLOW_WEB_USER: ${{ secrets.AIRFLOW_WEB_USER }}
+          AIRFLOW_WEB_PASSWORD: ${{ secrets.AIRFLOW_WEB_PASSWORD }}
+          DRIFT_MOUNT_TYPE: ${{ secrets.DRIFT_MOUNT_TYPE }}
+          DRIFT_MOUNT_SOURCE: ${{ secrets.DRIFT_MOUNT_SOURCE }}
+          DRIFT_MOUNT_TARGET: ${{ secrets.DRIFT_MOUNT_TARGET }}
+          TRAIN_DATASET_MOUNT_TYPE: ${{ secrets.TRAIN_DATASET_MOUNT_TYPE }}
+          TRAIN_DATASET_MOUNT_SOURCE: ${{ secrets.TRAIN_DATASET_MOUNT_SOURCE }}
+          TRAIN_DATASET_MOUNT_TARGET: ${{ secrets.TRAIN_DATASET_MOUNT_TARGET }}
+          TRAIN_DATASET_FILE: ${{ secrets.TRAIN_DATASET_FILE }}
+          TRAIN_ARTIFACTS_MOUNT_TYPE: ${{ secrets.TRAIN_ARTIFACTS_MOUNT_TYPE }}
+          TRAIN_ARTIFACTS_MOUNT_SOURCE: ${{ secrets.TRAIN_ARTIFACTS_MOUNT_SOURCE }}
+          TRAIN_ARTIFACTS_MOUNT_TARGET: ${{ secrets.TRAIN_ARTIFACTS_MOUNT_TARGET }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           script: |
             set -euo pipefail
-            mkdir -p "${{ secrets.DEPLOY_PATH }}"
-            cd "${{ secrets.DEPLOY_PATH }}"
+            DEPLOY_BASE="${{ secrets.DEPLOY_PATH }}"
+            mkdir -p "${DEPLOY_BASE}"
+            cd "${DEPLOY_BASE}"
             mkdir -p bert_classifier/model
-            cat > .env <<'EOF'
+
+            AIRFLOW_WEB_USER_VALUE="${AIRFLOW_WEB_USER:-airflow}"
+            AIRFLOW_WEB_PASSWORD_VALUE="${AIRFLOW_WEB_PASSWORD:-airflow}"
+            DRIFT_MOUNT_TYPE_VALUE="${DRIFT_MOUNT_TYPE:-bind}"
+            DRIFT_MOUNT_SOURCE_VALUE="${DRIFT_MOUNT_SOURCE:-${DEPLOY_BASE}/airflow-data/drift}"
+            DRIFT_MOUNT_TARGET_VALUE="${DRIFT_MOUNT_TARGET:-/var/lib/confidential-drift}"
+            TRAIN_DATASET_MOUNT_TYPE_VALUE="${TRAIN_DATASET_MOUNT_TYPE:-bind}"
+            TRAIN_DATASET_MOUNT_SOURCE_VALUE="${TRAIN_DATASET_MOUNT_SOURCE:-${DEPLOY_BASE}/dataset}"
+            TRAIN_DATASET_MOUNT_TARGET_VALUE="${TRAIN_DATASET_MOUNT_TARGET:-/var/lib/confidential-dataset}"
+            TRAIN_DATASET_FILE_VALUE="${TRAIN_DATASET_FILE:-ds.parquet}"
+            TRAIN_ARTIFACTS_MOUNT_TYPE_VALUE="${TRAIN_ARTIFACTS_MOUNT_TYPE:-bind}"
+            TRAIN_ARTIFACTS_MOUNT_SOURCE_VALUE="${TRAIN_ARTIFACTS_MOUNT_SOURCE:-${DEPLOY_BASE}/airflow-data/artifacts}"
+            TRAIN_ARTIFACTS_MOUNT_TARGET_VALUE="${TRAIN_ARTIFACTS_MOUNT_TARGET:-/var/lib/confidential-artifacts}"
+
+            mkdir -p "${DRIFT_MOUNT_SOURCE_VALUE}" "${TRAIN_DATASET_MOUNT_SOURCE_VALUE}" "${TRAIN_ARTIFACTS_MOUNT_SOURCE_VALUE}"
+            if [ ! -f "${TRAIN_DATASET_MOUNT_SOURCE_VALUE}/${TRAIN_DATASET_FILE_VALUE}" ] && [ -f "${DEPLOY_BASE}/dataset/ds.parquet" ]; then
+              cp "${DEPLOY_BASE}/dataset/ds.parquet" "${TRAIN_DATASET_MOUNT_SOURCE_VALUE}/${TRAIN_DATASET_FILE_VALUE}"
+            fi
+
+            cat > .env <<EOF
             APP_NAME=${{ secrets.APP_NAME }}
             APP_ENV=${{ secrets.APP_ENV }}
             APP_HOST=${{ secrets.APP_HOST }}
@@ -219,6 +264,20 @@ jobs:
             SMTP_PORT=${{ secrets.SMTP_PORT }}
             SMTP_USERNAME=${{ secrets.SMTP_USERNAME }}
             SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }}
+            AIRFLOW_WEB_USER=${AIRFLOW_WEB_USER_VALUE}
+            AIRFLOW_WEB_PASSWORD=${AIRFLOW_WEB_PASSWORD_VALUE}
+            DOCKER_URL=unix://var/run/docker.sock
+            DOCKER_NETWORK_MODE=bridge
+            DRIFT_MOUNT_TYPE=${DRIFT_MOUNT_TYPE_VALUE}
+            DRIFT_MOUNT_SOURCE=${DRIFT_MOUNT_SOURCE_VALUE}
+            DRIFT_MOUNT_TARGET=${DRIFT_MOUNT_TARGET_VALUE}
+            TRAIN_DATASET_MOUNT_TYPE=${TRAIN_DATASET_MOUNT_TYPE_VALUE}
+            TRAIN_DATASET_MOUNT_SOURCE=${TRAIN_DATASET_MOUNT_SOURCE_VALUE}
+            TRAIN_DATASET_MOUNT_TARGET=${TRAIN_DATASET_MOUNT_TARGET_VALUE}
+            TRAIN_DATASET_FILE=${TRAIN_DATASET_FILE_VALUE}
+            TRAIN_ARTIFACTS_MOUNT_TYPE=${TRAIN_ARTIFACTS_MOUNT_TYPE_VALUE}
+            TRAIN_ARTIFACTS_MOUNT_SOURCE=${TRAIN_ARTIFACTS_MOUNT_SOURCE_VALUE}
+            TRAIN_ARTIFACTS_MOUNT_TARGET=${TRAIN_ARTIFACTS_MOUNT_TARGET_VALUE}
             EOF
             cat > docker-compose.yml <<'EOF'
             services:
@@ -242,3 +301,5 @@ jobs:
             echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u "${{ secrets.GHCR_USERNAME }}" --password-stdin
             docker compose pull app frontend
             docker compose up -d --remove-orphans
+            mkdir -p dags
+            docker compose -f docker-compose.airflow.yml up -d --remove-orphans
