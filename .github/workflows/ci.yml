@@ -241,7 +241,7 @@ jobs:
             TRAIN_DATASET_MOUNT_SOURCE_VALUE="${TRAIN_DATASET_MOUNT_SOURCE:-${DEPLOY_BASE}/dataset}"
             TRAIN_DATASET_MOUNT_TARGET_VALUE="${TRAIN_DATASET_MOUNT_TARGET:-/var/lib/confidential-dataset}"
             TRAIN_DATASET_FILE_VALUE="${TRAIN_DATASET_FILE:-ds.parquet}"
-            TRAIN_DATASET_URI_VALUE="${TRAIN_DATASET_URI:-}"
+            TRAIN_DATASET_URI_VALUE="${TRAIN_DATASET_URI:-s3://confedentbaucketden/datasets/ds.parquet}"
             TRAIN_ARTIFACTS_MOUNT_TYPE_VALUE="${TRAIN_ARTIFACTS_MOUNT_TYPE:-bind}"
             TRAIN_ARTIFACTS_MOUNT_SOURCE_VALUE="${TRAIN_ARTIFACTS_MOUNT_SOURCE:-${DEPLOY_BASE}/airflow-data/artifacts}"
             TRAIN_ARTIFACTS_MOUNT_TARGET_VALUE="${TRAIN_ARTIFACTS_MOUNT_TARGET:-/var/lib/confidential-artifacts}"
