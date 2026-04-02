@@ -48,6 +48,7 @@ services:
       --email airflow@example.com"
     volumes:
       - ./dags:/opt/airflow/dags
+      - airflow_logs:/opt/airflow/logs
       - /var/run/docker.sock:/var/run/docker.sock
 
   airflow-webserver:
@@ -81,6 +82,7 @@ services:
       - "8080:8080"
     volumes:
       - ./dags:/opt/airflow/dags
+      - airflow_logs:/opt/airflow/logs
       - /var/run/docker.sock:/var/run/docker.sock
 
   airflow-scheduler:
@@ -111,7 +113,9 @@ services:
     command: scheduler
     volumes:
       - ./dags:/opt/airflow/dags
+      - airflow_logs:/opt/airflow/logs
       - /var/run/docker.sock:/var/run/docker.sock
 
 volumes:
   airflow_postgres_data:
+  airflow_logs:
