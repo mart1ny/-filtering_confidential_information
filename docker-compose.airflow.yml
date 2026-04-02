@@ -15,6 +15,7 @@ services:
 
   airflow-init:
     image: apache/airflow:2.10.5
+    user: "0:0"
     depends_on:
       postgres:
         condition: service_healthy
@@ -51,6 +52,7 @@ services:
 
   airflow-webserver:
     image: apache/airflow:2.10.5
+    user: "0:0"
     depends_on:
       postgres:
         condition: service_healthy
@@ -83,6 +85,7 @@ services:
 
   airflow-scheduler:
     image: apache/airflow:2.10.5
+    user: "0:0"
     depends_on:
       postgres:
         condition: service_healthy

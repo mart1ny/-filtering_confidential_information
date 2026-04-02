@@ -9,7 +9,7 @@ with DAG(
     dag_id="confidential_metrics_batch",
     start_date=datetime(2026, 1, 1),
     schedule="@daily",
-    catchup=True,
+    catchup=False,
     max_active_runs=1,
     tags=["ml", "drift", "idempotent"],
 ) as dag:
