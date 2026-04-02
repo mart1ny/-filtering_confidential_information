@@ -299,7 +299,20 @@ jobs:
                 restart: unless-stopped
             EOF
             echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u "${{ secrets.GHCR_USERNAME }}" --password-stdin
-            docker compose pull app frontend
+            APP_IMAGE_FULL="ghcr.io/${{ github.repository_owner }}/confidential-filter-service:latest"
+            FRONTEND_IMAGE_FULL="ghcr.io/${{ github.repository_owner }}/confidential-filter-frontend:latest"
+            for attempt in 1 2 3; do
+              if docker compose pull app frontend; then
+                break
+              fi
+              echo "docker compose pull failed (attempt ${attempt}/3), retrying..."
+              docker image rm -f "${APP_IMAGE_FULL}" "${FRONTEND_IMAGE_FULL}" || true
+              sleep 8
+              if [ "${attempt}" -eq 3 ]; then
+                echo "docker pull failed after 3 attempts"
+                exit 1
+              fi
+            done
             docker compose up -d --remove-orphans
             mkdir -p dags
             docker compose -f docker-compose.airflow.yml up -d --remove-orphans
