@@ -252,6 +252,17 @@ jobs:
             AWS_DEFAULT_REGION_VALUE="${AWS_DEFAULT_REGION:-${AWS_REGION_VALUE}}"
             S3_ENDPOINT_URL_VALUE="${S3_ENDPOINT_URL:-}"
 
+            if [[ "${TRAIN_DATASET_URI_VALUE}" == s3://* || "${TRAIN_DATASET_URI_VALUE}" == s3:/* ]]; then
+              if [ -z "${AWS_ACCESS_KEY_ID_VALUE}" ] || [ -z "${AWS_SECRET_ACCESS_KEY_VALUE}" ]; then
+                echo "S3 dataset is configured, but AWS credentials are missing (AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY)."
+                exit 1
+              fi
+              if [ -z "${S3_ENDPOINT_URL_VALUE}" ]; then
+                echo "S3 dataset is configured, but S3_ENDPOINT_URL is missing."
+                exit 1
+              fi
+            fi
+
             mkdir -p "${DRIFT_MOUNT_SOURCE_VALUE}" "${TRAIN_DATASET_MOUNT_SOURCE_VALUE}" "${TRAIN_ARTIFACTS_MOUNT_SOURCE_VALUE}"
             if [ ! -f "${TRAIN_DATASET_MOUNT_SOURCE_VALUE}/${TRAIN_DATASET_FILE_VALUE}" ] && [ -f "${DEPLOY_BASE}/dataset/ds.parquet" ]; then
               cp "${DEPLOY_BASE}/dataset/ds.parquet" "${TRAIN_DATASET_MOUNT_SOURCE_VALUE}/${TRAIN_DATASET_FILE_VALUE}"
