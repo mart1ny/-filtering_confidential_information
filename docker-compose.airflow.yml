@@ -22,7 +22,6 @@ services:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
-      _PIP_ADDITIONAL_REQUIREMENTS: apache-airflow-providers-docker==4.4.4
       APP_IMAGE: ${APP_IMAGE:-confidential-filter-service:local}
       DOCKER_URL: ${DOCKER_URL:-unix://var/run/docker.sock}
       DOCKER_NETWORK_MODE: ${DOCKER_NETWORK_MODE:-bridge}
@@ -62,7 +61,6 @@ services:
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
       AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "true"
-      _PIP_ADDITIONAL_REQUIREMENTS: apache-airflow-providers-docker==4.4.4
       APP_IMAGE: ${APP_IMAGE:-confidential-filter-service:local}
       DOCKER_URL: ${DOCKER_URL:-unix://var/run/docker.sock}
       DOCKER_NETWORK_MODE: ${DOCKER_NETWORK_MODE:-bridge}
@@ -94,7 +92,6 @@ services:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
-      _PIP_ADDITIONAL_REQUIREMENTS: apache-airflow-providers-docker==4.4.4
       APP_IMAGE: ${APP_IMAGE:-confidential-filter-service:local}
       DOCKER_URL: ${DOCKER_URL:-unix://var/run/docker.sock}
       DOCKER_NETWORK_MODE: ${DOCKER_NETWORK_MODE:-bridge}
