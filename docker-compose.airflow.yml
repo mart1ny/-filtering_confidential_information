@@ -65,7 +65,10 @@ services:
       --lastname Flow
       --role Admin
       --email airflow@example.com ||
-      echo 'Airflow user already exists, skipping create'"
+      echo 'Airflow user already exists, skipping create' &&
+      airflow users reset-password
+      --username ${AIRFLOW_WEB_USER:-airflow}
+      --password ${AIRFLOW_WEB_PASSWORD:-airflow}"
     volumes:
       - ./dags:/opt/airflow/dags
       - airflow_logs:/opt/airflow/logs
