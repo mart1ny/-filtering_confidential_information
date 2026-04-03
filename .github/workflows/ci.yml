@@ -391,7 +391,12 @@ jobs:
             done
             docker compose -p "${APP_PROJECT}" up -d --remove-orphans
             mkdir -p dags
-            docker compose -p "${AIRFLOW_PROJECT}" -f docker-compose.airflow.yml up -d --remove-orphans
+            if ! docker compose -p "${AIRFLOW_PROJECT}" -f docker-compose.airflow.yml up -d --remove-orphans; then
+              echo "Airflow compose startup failed"
+              docker compose -p "${AIRFLOW_PROJECT}" -f docker-compose.airflow.yml ps || true
+              docker compose -p "${AIRFLOW_PROJECT}" -f docker-compose.airflow.yml logs --tail=200 airflow-init airflow-webserver airflow-scheduler postgres || true
+              exit 1
+            fi
 
             APP_PORT_VALUE="${{ secrets.APP_PORT }}"
             FRONTEND_PORT_VALUE="${{ secrets.FRONTEND_PORT }}"
