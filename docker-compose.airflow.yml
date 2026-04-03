@@ -57,18 +57,16 @@ services:
       TRAIN_RESULTS_S3_URI_PREFIX: ${TRAIN_RESULTS_S3_URI_PREFIX:-}
     entrypoint: /bin/bash
     command: >
-      -c "airflow db migrate &&
+      -c "set -e;
+      airflow db migrate;
+      airflow users delete --username ${AIRFLOW_WEB_USER:-airflow} || true;
       airflow users create
       --username ${AIRFLOW_WEB_USER:-airflow}
       --password ${AIRFLOW_WEB_PASSWORD:-airflow}
       --firstname Air
       --lastname Flow
       --role Admin
-      --email airflow@example.com ||
-      echo 'Airflow user already exists, skipping create' &&
-      airflow users reset-password
-      --username ${AIRFLOW_WEB_USER:-airflow}
-      --password ${AIRFLOW_WEB_PASSWORD:-airflow}"
+      --email airflow@example.com"
     volumes:
       - ./dags:/opt/airflow/dags
       - airflow_logs:/opt/airflow/logs
