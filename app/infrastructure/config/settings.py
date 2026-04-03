@@ -42,6 +42,10 @@ class Settings(BaseSettings):
         )
         if not all(required_parts):
             return None
+        assert self.review_db_user is not None
+        assert self.review_db_password is not None
+        assert self.review_db_host is not None
+        assert self.review_db_name is not None
         return (
             "postgresql://"
             f"{quote_plus(self.review_db_user)}:{quote_plus(self.review_db_password)}"

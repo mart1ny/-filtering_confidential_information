@@ -269,18 +269,16 @@ class ReviewQueueStore:
         return payload
 
     def _deserialize_case(self, payload: dict[str, object]) -> ReviewCase:
+        risk_score = payload["risk_score"]
+        label = payload["is_contains_confidential"]
         return ReviewCase(
             case_id=str(payload["case_id"]),
             text=str(payload["text"]),
-            risk_score=float(payload["risk_score"]),
+            risk_score=float(str(risk_score)),
             detector_decision=Decision(str(payload["detector_decision"])),
             reason=str(payload["reason"]),
             status=ReviewStatus(str(payload["status"])),
-            is_contains_confidential=(
-                int(payload["is_contains_confidential"])
-                if payload["is_contains_confidential"] is not None
-                else None
-            ),
+            is_contains_confidential=int(str(label)) if label is not None else None,
             reviewer=str(payload["reviewer"]) if payload["reviewer"] is not None else None,
             note=str(payload["note"]) if payload["note"] is not None else None,
             created_at=datetime.fromisoformat(str(payload["created_at"])),
