@@ -16,3 +16,4 @@ dataset
 bert_classifier
 frontend/node_modules/
 frontend/dist/
+review_data/

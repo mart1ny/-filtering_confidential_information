@@ -6,6 +6,8 @@ services:
       - .env
     ports:
       - "8000:8000"
+    volumes:
+      - ./review_data:/srv/app/review_data
 
   frontend:
     image: ${FRONTEND_IMAGE:-confidential-filter-frontend:local}
