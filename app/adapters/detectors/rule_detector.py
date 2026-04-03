@@ -1,7 +1,7 @@
 import re
 from dataclasses import dataclass
 
-from app.domain.models import Decision, RiskAssessment
+from app.domain.models import Decision, RiskAssessment, build_empty_text_assessment
 
 
 @dataclass(frozen=True)
@@ -21,14 +21,32 @@ class RuleBasedDetector:
     def detect(self, text: str) -> RiskAssessment:
         normalized = text.strip()
         if not normalized:
-            return RiskAssessment(Decision.ALLOW, 0.0, "empty_text")
+            return build_empty_text_assessment("rules")
 
         if self._token.search(normalized):
-            return RiskAssessment(Decision.BLOCK, 0.95, "token_pattern")
+            return RiskAssessment(
+                Decision.BLOCK,
+                0.95,
+                "token_pattern",
+                detector_used="rules",
+                detector_details={"rule_score": 0.95, "matched_rule": "token_pattern"},
+            )
         if self._passport.search(normalized):
-            return RiskAssessment(Decision.BLOCK, 0.92, "passport_pattern")
+            return RiskAssessment(
+                Decision.BLOCK,
+                0.92,
+                "passport_pattern",
+                detector_used="rules",
+                detector_details={"rule_score": 0.92, "matched_rule": "passport_pattern"},
+            )
         if self._has_valid_card(normalized):
-            return RiskAssessment(Decision.BLOCK, 0.99, "bank_card_pattern")
+            return RiskAssessment(
+                Decision.BLOCK,
+                0.99,
+                "bank_card_pattern",
+                detector_used="rules",
+                detector_details={"rule_score": 0.99, "matched_rule": "bank_card_pattern"},
+            )
         if self._email.search(normalized):
             return self._decision_from_score(0.55, "email_pattern")
 
@@ -36,10 +54,18 @@ class RuleBasedDetector:
 
     def _decision_from_score(self, score: float, reason: str) -> RiskAssessment:
         if score >= self._thresholds.block:
-            return RiskAssessment(Decision.BLOCK, score, reason)
-        if score >= self._thresholds.allow:
-            return RiskAssessment(Decision.REVIEW, score, reason)
-        return RiskAssessment(Decision.ALLOW, score, reason)
+            decision = Decision.BLOCK
+        elif score >= self._thresholds.allow:
+            decision = Decision.REVIEW
+        else:
+            decision = Decision.ALLOW
+        return RiskAssessment(
+            decision,
+            score,
+            reason,
+            detector_used="rules",
+            detector_details={"rule_score": score, "matched_rule": reason},
+        )
 
     def _has_valid_card(self, text: str) -> bool:
         for candidate in self._card.findall(text):

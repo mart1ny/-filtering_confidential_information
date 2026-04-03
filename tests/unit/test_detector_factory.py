@@ -37,9 +37,10 @@ def test_factory_builds_hybrid_backend(monkeypatch) -> None:
     assert isinstance(detector, HybridDetector)
 
 
-def test_factory_falls_back_to_rules_on_unknown_backend() -> None:
+def test_factory_falls_back_to_hybrid_on_unknown_backend(monkeypatch) -> None:
+    monkeypatch.setattr(BertDetector, "warmup", lambda self: None)
     detector = build_text_detector(build_settings("unknown"))
-    assert isinstance(detector, RuleBasedDetector)
+    assert isinstance(detector, HybridDetector)
 
 
 def test_factory_falls_back_to_rules_when_model_init_fails(monkeypatch) -> None:
@@ -56,3 +57,9 @@ def test_factory_falls_back_to_rules_when_model_init_fails(monkeypatch) -> None:
     monkeypatch.setattr(BertDetector, "__init__", broken_init)
     detector = build_text_detector(build_settings("bert"))
     assert isinstance(detector, RuleBasedDetector)
+
+
+def test_factory_uses_hybrid_when_backend_is_blank(monkeypatch) -> None:
+    monkeypatch.setattr(BertDetector, "warmup", lambda self: None)
+    detector = build_text_detector(build_settings(""))
+    assert isinstance(detector, HybridDetector)

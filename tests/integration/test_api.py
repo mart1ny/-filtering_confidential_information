@@ -16,6 +16,8 @@ def test_assess_endpoint() -> None:
     assert response.status_code == 200
     payload = response.json()
     assert payload["decision"] == "block"
+    assert payload["detector_used"] in {"rules", "bert", "hybrid"}
+    assert isinstance(payload["detector_details"], dict)
 
 
 def test_drift_endpoint() -> None:

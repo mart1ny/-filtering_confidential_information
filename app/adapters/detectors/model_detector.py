@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from app.adapters.detectors.rule_detector import DetectorThresholds
-from app.domain.models import Decision, RiskAssessment
+from app.domain.models import Decision, RiskAssessment, build_empty_text_assessment
 
 
 @dataclass
@@ -32,7 +32,7 @@ class BertDetector:
     def detect(self, text: str) -> RiskAssessment:
         normalized = text.strip()
         if not normalized:
-            return RiskAssessment(Decision.ALLOW, 0.0, "empty_text")
+            return build_empty_text_assessment("bert")
 
         runtime = self._ensure_runtime()
 
@@ -47,10 +47,28 @@ class BertDetector:
             probability = runtime.torch.softmax(output.logits, dim=1)[0][1].item()
 
         if probability >= self._thresholds.block:
-            return RiskAssessment(Decision.BLOCK, probability, "bert_risk_high")
+            return RiskAssessment(
+                Decision.BLOCK,
+                probability,
+                "bert_risk_high",
+                detector_used="bert",
+                detector_details={"model_score": probability},
+            )
         if probability >= self._thresholds.allow:
-            return RiskAssessment(Decision.REVIEW, probability, "bert_risk_medium")
-        return RiskAssessment(Decision.ALLOW, probability, "bert_risk_low")
+            return RiskAssessment(
+                Decision.REVIEW,
+                probability,
+                "bert_risk_medium",
+                detector_used="bert",
+                detector_details={"model_score": probability},
+            )
+        return RiskAssessment(
+            Decision.ALLOW,
+            probability,
+            "bert_risk_low",
+            detector_used="bert",
+            detector_details={"model_score": probability},
+        )
 
     def _ensure_runtime(self) -> _ModelRuntime:
         if self._runtime is not None:

@@ -1,5 +1,7 @@
 # pylint: disable=duplicate-code
 
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 from app.domain.models import Decision, ReviewStatus
@@ -14,6 +16,8 @@ class AssessResponse(BaseModel):
     risk_score: float
     reason: str
     review_case_id: str | None = None
+    detector_used: str | None = None
+    detector_details: dict[str, Any] | None = None
 
 
 class HealthResponse(BaseModel):

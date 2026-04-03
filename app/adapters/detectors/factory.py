@@ -11,7 +11,7 @@ def build_text_detector(app_settings: Settings) -> TextDetector:
         block=app_settings.risk_block_threshold,
     )
     rules_detector = RuleBasedDetector(thresholds=thresholds)
-    backend = app_settings.detector_backend.lower()
+    backend = (app_settings.detector_backend or "hybrid").strip().lower() or "hybrid"
 
     if backend == "rules":
         return rules_detector
@@ -33,4 +33,4 @@ def build_text_detector(app_settings: Settings) -> TextDetector:
     if backend == "hybrid":
         return HybridDetector(rules_detector=rules_detector, model_detector=model_detector)
 
-    return rules_detector
+    return HybridDetector(rules_detector=rules_detector, model_detector=model_detector)

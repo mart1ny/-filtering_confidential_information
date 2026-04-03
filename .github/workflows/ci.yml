@@ -309,7 +309,7 @@ jobs:
             FRONTEND_IMAGE=ghcr.io/${{ github.repository_owner }}/confidential-filter-frontend:latest
             RISK_ALLOW_THRESHOLD=${{ secrets.RISK_ALLOW_THRESHOLD }}
             RISK_BLOCK_THRESHOLD=${{ secrets.RISK_BLOCK_THRESHOLD }}
-            DETECTOR_BACKEND=${{ secrets.DETECTOR_BACKEND }}
+            DETECTOR_BACKEND=${{ secrets.DETECTOR_BACKEND || 'hybrid' }}
             MODEL_PATH=bert_classifier/model
             MODEL_NAME=${{ secrets.MODEL_NAME }}
             MODEL_DEVICE=${{ secrets.MODEL_DEVICE }}

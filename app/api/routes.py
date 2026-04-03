@@ -71,6 +71,8 @@ def assess(
         risk_score=assessment.risk_score,
         reason=assessment.reason,
         review_case_id=review_case_id,
+        detector_used=assessment.detector_used,
+        detector_details=assessment.detector_details,
     )
 
 

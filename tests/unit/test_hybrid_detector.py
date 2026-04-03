@@ -18,14 +18,15 @@ class StubModel:
         return self._result
 
 
-def test_hybrid_returns_rules_block_immediately() -> None:
+def test_hybrid_escalates_rules_block_to_review_when_model_allows() -> None:
     detector = HybridDetector(
         rules_detector=StubRules(RiskAssessment(Decision.BLOCK, 0.95, "token_pattern")),
         model_detector=StubModel(RiskAssessment(Decision.ALLOW, 0.1, "bert_risk_low")),
     )
     result = detector.detect("secret")
-    assert result.decision == Decision.BLOCK
-    assert result.reason == "token_pattern"
+    assert result.decision == Decision.REVIEW
+    assert result.reason == "rules_flag_token_pattern"
+    assert result.detector_used == "hybrid"
 
 
 def test_hybrid_returns_model_when_model_risk_is_higher() -> None:
@@ -36,9 +37,10 @@ def test_hybrid_returns_model_when_model_risk_is_higher() -> None:
     result = detector.detect("text")
     assert result.decision == Decision.BLOCK
     assert result.reason == "bert_risk_high"
+    assert result.detector_used == "bert"
 
 
-def test_hybrid_keeps_rules_when_rules_risk_is_higher() -> None:
+def test_hybrid_keeps_rules_signal_when_model_allows_and_rules_score_is_higher() -> None:
     detector = HybridDetector(
         rules_detector=StubRules(RiskAssessment(Decision.REVIEW, 0.6, "email_pattern")),
         model_detector=StubModel(RiskAssessment(Decision.ALLOW, 0.2, "bert_risk_low")),
@@ -46,3 +48,15 @@ def test_hybrid_keeps_rules_when_rules_risk_is_higher() -> None:
     result = detector.detect("text")
     assert result.decision == Decision.REVIEW
     assert result.reason == "rules_email_pattern"
+    assert result.detector_used == "hybrid"
+
+
+def test_hybrid_prefers_model_review_over_rules_allow() -> None:
+    detector = HybridDetector(
+        rules_detector=StubRules(RiskAssessment(Decision.ALLOW, 0.1, "no_sensitive_pattern")),
+        model_detector=StubModel(RiskAssessment(Decision.REVIEW, 0.58, "bert_risk_medium")),
+    )
+    result = detector.detect("text")
+    assert result.decision == Decision.REVIEW
+    assert result.reason == "bert_risk_medium"
+    assert result.detector_used == "bert"
