@@ -55,18 +55,42 @@ services:
       S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:-}
       DRIFT_RESULTS_S3_URI_PREFIX: ${DRIFT_RESULTS_S3_URI_PREFIX:-}
       TRAIN_RESULTS_S3_URI_PREFIX: ${TRAIN_RESULTS_S3_URI_PREFIX:-}
+      AIRFLOW_WEB_USER: ${AIRFLOW_WEB_USER:-airflow}
+      AIRFLOW_WEB_PASSWORD: ${AIRFLOW_WEB_PASSWORD:-airflow}
     entrypoint: /bin/bash
-    command: >
-      -c "set -e;
-      airflow db migrate;
-      airflow users delete --username ${AIRFLOW_WEB_USER:-airflow} || true;
-      airflow users create
-      --username ${AIRFLOW_WEB_USER:-airflow}
-      --password ${AIRFLOW_WEB_PASSWORD:-airflow}
-      --firstname Air
-      --lastname Flow
-      --role Admin
-      --email airflow@example.com"
+    command: |
+      -c '
+      set -e
+      airflow db migrate
+      python -c "exec(\"\"\"import os
+from airflow.www.app import create_app
+from werkzeug.security import generate_password_hash
+
+app = create_app()
+username = os.environ.get(\"AIRFLOW_WEB_USER\", \"airflow\")
+password = os.environ.get(\"AIRFLOW_WEB_PASSWORD\", \"airflow\")
+
+with app.app_context():
+    appbuilder = app.appbuilder
+    sm = appbuilder.sm
+    session = appbuilder.get_session
+    role = sm.find_role(\"Admin\")
+    if role is None:
+        raise RuntimeError(\"Admin role not found\")
+    user = sm.find_user(username=username)
+    if user is None:
+        user = sm.user_model()
+        session.add(user)
+    user.username = username
+    user.first_name = \"Air\"
+    user.last_name = \"Flow\"
+    user.email = \"airflow@example.com\"
+    user.active = True
+    user.password = generate_password_hash(password)
+    user.roles = [role]
+    session.commit()
+\"\"\")"
+      '
     volumes:
       - ./dags:/opt/airflow/dags
       - airflow_logs:/opt/airflow/logs
