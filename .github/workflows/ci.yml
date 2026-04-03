@@ -346,24 +346,24 @@ jobs:
             AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION_VALUE}
             S3_ENDPOINT_URL=${S3_ENDPOINT_URL_VALUE}
             EOF
-            cat > docker-compose.yml <<'EOF'
+            cat > docker-compose.yml <<EOF
             services:
               app:
                 image: ghcr.io/${{ github.repository_owner }}/confidential-filter-service:latest
                 env_file:
                   - .env
                 ports:
-                  - "${APP_PORT}:8000"
+                  - "${{ secrets.APP_PORT }}:8000"
                 volumes:
                   - ./bert_classifier/model:/srv/app/bert_classifier/model:ro
-                  - ${REVIEW_MOUNT_SOURCE}:${REVIEW_MOUNT_TARGET}
+                  - ${REVIEW_MOUNT_SOURCE_VALUE}:${REVIEW_MOUNT_TARGET_VALUE}
                 restart: unless-stopped
               frontend:
                 image: ghcr.io/${{ github.repository_owner }}/confidential-filter-frontend:latest
                 depends_on:
                   - app
                 ports:
-                  - "${FRONTEND_PORT:-5173}:80"
+                  - "${{ secrets.FRONTEND_PORT }}:80"
                 restart: unless-stopped
             EOF
             echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u "${{ secrets.GHCR_USERNAME }}" --password-stdin
