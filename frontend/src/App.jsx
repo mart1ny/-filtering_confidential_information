@@ -98,8 +98,6 @@ function App() {
           title: view.title,
           subtitle: view.subtitle,
           tone: view.tone,
-          probability: Number(result.risk_score).toFixed(3),
-          detectorUsed: result.detector_used ?? "unknown",
         },
       ]);
     } catch (requestError) {
@@ -146,18 +144,6 @@ function App() {
                   <span className="message-role">Результат</span>
                   <h2>{message.title ?? "ГОТОВО"}</h2>
                   <p>{message.subtitle ?? message.text}</p>
-                  {message.probability && (
-                    <dl className="result-meta">
-                      <div>
-                        <dt>Вероятность</dt>
-                        <dd>{message.probability}</dd>
-                      </div>
-                      <div>
-                        <dt>Источник</dt>
-                        <dd>{message.detectorUsed}</dd>
-                      </div>
-                    </dl>
-                  )}
                 </div>
               </article>
             )
