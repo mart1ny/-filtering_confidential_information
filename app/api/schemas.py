@@ -1,3 +1,5 @@
+# pylint: disable=duplicate-code
+
 from pydantic import BaseModel, Field
 
 from app.domain.models import Decision, ReviewStatus

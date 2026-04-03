@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -75,17 +75,12 @@ class ReviewQueueStore:
         rewritten_cases: list[ReviewCase] = []
         for case in cases:
             if case.case_id == case_id:
-                updated_case = ReviewCase(
-                    case_id=case.case_id,
-                    text=case.text,
-                    risk_score=case.risk_score,
-                    detector_decision=case.detector_decision,
-                    reason=case.reason,
+                updated_case = replace(
+                    case,
                     status=ReviewStatus.LABELED,
                     is_contains_confidential=is_contains_confidential,
                     reviewer=reviewer,
                     note=note,
-                    created_at=case.created_at,
                     reviewed_at=datetime.now(timezone.utc),
                 )
                 rewritten_cases.append(updated_case)
