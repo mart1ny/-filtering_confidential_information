@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +19,7 @@ from transformers import (
     set_seed,
 )
 
+from app.storage.s3 import upload_directory_if_configured
 from app.training.config import TrainingConfig
 from app.training.data import load_dataset, split_by_group
 from app.training.metrics import evaluate_classification, trainer_compute_metrics
@@ -175,6 +177,7 @@ def main() -> None:
         "val_metrics.json",
     )
     save_metrics(test_metrics, config.output_dir, "test_metrics.json")
+    upload_directory_if_configured(config.output_dir, os.environ.get("TRAIN_RESULTS_S3_URI_PREFIX"))
 
 
 def softmax_logits(logits: np.ndarray) -> np.ndarray:

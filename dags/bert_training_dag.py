@@ -68,6 +68,7 @@ with DAG(
         "AWS_REGION",
         "AWS_DEFAULT_REGION",
         "S3_ENDPOINT_URL",
+        "TRAIN_RESULTS_S3_URI_PREFIX",
     ):
         value = os.environ.get(key)
         if value:
