@@ -250,6 +250,12 @@ def test_main_runs_training_orchestration(monkeypatch: pytest.MonkeyPatch, tmp_p
         "save_metrics",
         lambda metrics, out_dir, name: calls["save_metrics"].append((metrics, out_dir, name)),
     )
+    monkeypatch.setattr(
+        module,
+        "upload_directory_if_configured",
+        lambda directory, uri: calls.setdefault("uploads", []).append((directory, uri)),
+    )
+    monkeypatch.setenv("TRAIN_RESULTS_S3_URI_PREFIX", "s3://bucket-name/training-runs/run-1")
 
     module.main()
 
@@ -263,3 +269,4 @@ def test_main_runs_training_orchestration(monkeypatch: pytest.MonkeyPatch, tmp_p
     assert calls["save_metrics"][0][2] == "val_metrics.json"
     assert calls["save_metrics"][0][0] == {"eval_loss": 0.2, "eval_f1": 0.9, "epoch": 1.0}
     assert calls["save_metrics"][1] == ({"f1": 0.8}, output_dir, "test_metrics.json")
+    assert calls["uploads"] == [(output_dir, "s3://bucket-name/training-runs/run-1")]

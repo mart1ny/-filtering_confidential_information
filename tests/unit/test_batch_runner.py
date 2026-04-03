@@ -18,6 +18,64 @@ def test_runner_calls_compute_drift_metrics(monkeypatch, tmp_path: Path) -> None
         "argv",
         [
             "runner.py",
+            "--action",
+            "compute",
+            "--run-date",
+            "2026-03-01",
+            "--output-dir",
+            str(tmp_path),
+        ],
+    )
+
+    runner.main()
+
+    assert called["run_date"] == "2026-03-01"
+    assert called["output_dir"] == str(tmp_path)
+
+
+def test_runner_prepares_output_dir(monkeypatch, tmp_path: Path) -> None:
+    called = {}
+
+    def fake_prepare_drift_output_dir(output_dir: str) -> Path:
+        called["output_dir"] = output_dir
+        return tmp_path
+
+    monkeypatch.setattr(runner, "prepare_drift_output_dir", fake_prepare_drift_output_dir)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "runner.py",
+            "--action",
+            "prepare",
+            "--run-date",
+            "2026-03-01",
+            "--output-dir",
+            str(tmp_path),
+        ],
+    )
+
+    runner.main()
+
+    assert called["output_dir"] == str(tmp_path)
+
+
+def test_runner_publishes_drift_metrics(monkeypatch, tmp_path: Path) -> None:
+    called = {}
+
+    def fake_publish_drift_metrics(run_date: str, output_dir: str) -> Path:
+        called["run_date"] = run_date
+        called["output_dir"] = output_dir
+        return tmp_path / "drift.json"
+
+    monkeypatch.setattr(runner, "publish_drift_metrics", fake_publish_drift_metrics)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "runner.py",
+            "--action",
+            "publish",
             "--run-date",
             "2026-03-01",
             "--output-dir",
