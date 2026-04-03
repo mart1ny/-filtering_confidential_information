@@ -384,3 +384,48 @@ jobs:
             docker compose up -d --remove-orphans
             mkdir -p dags
             docker compose -f docker-compose.airflow.yml up -d --remove-orphans
+
+            APP_PORT_VALUE="${{ secrets.APP_PORT }}"
+            FRONTEND_PORT_VALUE="${{ secrets.FRONTEND_PORT }}"
+
+            for attempt in 1 2 3 4 5; do
+              if curl -fsS "http://localhost:${APP_PORT_VALUE}/health" >/dev/null; then
+                break
+              fi
+              echo "backend healthcheck failed (attempt ${attempt}/5), retrying..."
+              sleep 5
+              if [ "${attempt}" -eq 5 ]; then
+                echo "Backend service is not healthy"
+                docker compose ps
+                docker compose logs --tail=200 app frontend || true
+                exit 1
+              fi
+            done
+
+            for attempt in 1 2 3 4 5; do
+              if curl -fsS -I "http://localhost:${FRONTEND_PORT_VALUE}" >/dev/null; then
+                break
+              fi
+              echo "frontend healthcheck failed (attempt ${attempt}/5), retrying..."
+              sleep 5
+              if [ "${attempt}" -eq 5 ]; then
+                echo "Frontend service is not healthy"
+                docker compose ps
+                docker compose logs --tail=200 frontend app || true
+                exit 1
+              fi
+            done
+
+            for attempt in 1 2 3 4 5 6; do
+              if curl -fsS "http://localhost:8080/health" >/dev/null; then
+                break
+              fi
+              echo "airflow healthcheck failed (attempt ${attempt}/6), retrying..."
+              sleep 10
+              if [ "${attempt}" -eq 6 ]; then
+                echo "Airflow webserver is not healthy"
+                docker compose -f docker-compose.airflow.yml ps
+                docker compose -f docker-compose.airflow.yml logs --tail=200 airflow-webserver airflow-scheduler airflow-init || true
+                exit 1
+              fi
+            done
