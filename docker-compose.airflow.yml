@@ -57,40 +57,14 @@ services:
       TRAIN_RESULTS_S3_URI_PREFIX: ${TRAIN_RESULTS_S3_URI_PREFIX:-}
       AIRFLOW_WEB_USER: ${AIRFLOW_WEB_USER:-airflow}
       AIRFLOW_WEB_PASSWORD: ${AIRFLOW_WEB_PASSWORD:-airflow}
-    entrypoint: /bin/bash
-    command: |
-      -c '
-      set -e
-      airflow db migrate
-      python -c "exec(\"\"\"import os
-from airflow.www.app import create_app
-from werkzeug.security import generate_password_hash
-
-app = create_app()
-username = os.environ.get(\"AIRFLOW_WEB_USER\", \"airflow\")
-password = os.environ.get(\"AIRFLOW_WEB_PASSWORD\", \"airflow\")
-
-with app.app_context():
-    appbuilder = app.appbuilder
-    sm = appbuilder.sm
-    session = appbuilder.get_session
-    role = sm.find_role(\"Admin\")
-    if role is None:
-        raise RuntimeError(\"Admin role not found\")
-    user = sm.find_user(username=username)
-    if user is None:
-        user = sm.user_model()
-        session.add(user)
-    user.username = username
-    user.first_name = \"Air\"
-    user.last_name = \"Flow\"
-    user.email = \"airflow@example.com\"
-    user.active = True
-    user.password = generate_password_hash(password)
-    user.roles = [role]
-    session.commit()
-\"\"\")"
-      '
+    entrypoint:
+      - /bin/bash
+      - -lc
+    command:
+      - >-
+        set -e;
+        airflow db migrate;
+        python -c "exec(\"import os\\nfrom airflow.www.app import create_app\\nfrom werkzeug.security import generate_password_hash\\napp = create_app()\\nusername = os.environ.get('AIRFLOW_WEB_USER', 'airflow')\\npassword = os.environ.get('AIRFLOW_WEB_PASSWORD', 'airflow')\\nwith app.app_context():\\n    appbuilder = app.appbuilder\\n    sm = appbuilder.sm\\n    session = appbuilder.get_session\\n    role = sm.find_role('Admin')\\n    if role is None:\\n        raise RuntimeError('Admin role not found')\\n    user = sm.find_user(username=username)\\n    if user is None:\\n        user = sm.user_model()\\n        session.add(user)\\n    user.username = username\\n    user.first_name = 'Air'\\n    user.last_name = 'Flow'\\n    user.email = 'airflow@example.com'\\n    user.active = True\\n    user.password = generate_password_hash(password)\\n    user.roles = [role]\\n    session.commit()\")"
     volumes:
       - ./dags:/opt/airflow/dags
       - airflow_logs:/opt/airflow/logs
