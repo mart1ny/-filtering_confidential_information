@@ -15,6 +15,7 @@ from app.api.schemas import (
 )
 from app.application.use_cases.assess_text import AssessTextUseCase
 from app.domain.models import Decision, ReviewCase, ReviewStatus
+from app.inference.store import AssessmentEventStore
 from app.infrastructure.config.settings import settings
 from app.infrastructure.monitoring.metrics import (
     ML_QUALITY_SCORE,
@@ -39,6 +40,11 @@ def get_review_store() -> ReviewQueueStore:
     )
 
 
+@lru_cache(maxsize=1)
+def get_assessment_store() -> AssessmentEventStore:
+    return AssessmentEventStore(database_url=settings.resolved_review_database_url)
+
+
 router = APIRouter()
 
 
@@ -52,11 +58,19 @@ def assess(
     request: AssessRequest,
     use_case: AssessTextUseCase = Depends(get_use_case),
     review_store: ReviewQueueStore = Depends(get_review_store),
+    assessment_store: AssessmentEventStore = Depends(get_assessment_store),
 ) -> AssessResponse:
     started = perf_counter()
     assessment = use_case.execute(request.text)
     REQUEST_COUNT.labels(endpoint="assess", decision=assessment.decision.value).inc()
     REQUEST_LATENCY.labels(endpoint="assess").observe(perf_counter() - started)
+    assessment_store.record_event(
+        text=request.text,
+        risk_score=assessment.risk_score,
+        decision=assessment.decision,
+        reason=assessment.reason,
+        detector_used=assessment.detector_used,
+    )
     review_case_id: str | None = None
     if assessment.decision == Decision.REVIEW:
         review_case = review_store.create_case(

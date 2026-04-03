@@ -1,24 +1,102 @@
+import json
 import os
 import sys
+from dataclasses import asdict
+from datetime import date, datetime, timezone
 from pathlib import Path
 from types import ModuleType
 
 import pytest
 
 from app.batch.compute_metrics import (
+    DriftMetrics,
     compute_drift_metrics,
     prepare_drift_output_dir,
     publish_drift_metrics,
 )
+from app.domain.models import Decision
+from app.inference.store import AssessmentEvent
 
 
 def test_compute_drift_metrics_is_idempotent(tmp_path: Path) -> None:
-    first = compute_drift_metrics(run_date="2026-03-01", output_dir=str(tmp_path))
-    second = compute_drift_metrics(run_date="2026-03-01", output_dir=str(tmp_path))
+    class StubStore:
+        def list_events_for_day(self, target_day: date) -> list[AssessmentEvent]:
+            assert str(target_day) == "2026-03-01"
+            return [
+                AssessmentEvent(
+                    event_id="cur-1",
+                    text="passport 1234 567890",
+                    risk_score=0.93,
+                    decision=Decision.BLOCK,
+                    reason="passport_pattern",
+                    detector_used="hybrid",
+                    created_at=datetime.now(timezone.utc),
+                )
+            ]
+
+        def list_events_between(self, start, end) -> list[AssessmentEvent]:
+            _ = (start, end)
+            return [
+                AssessmentEvent(
+                    event_id="base-1",
+                    text="hello",
+                    risk_score=0.11,
+                    decision=Decision.ALLOW,
+                    reason="bert_risk_low",
+                    detector_used="bert",
+                    created_at=datetime.now(timezone.utc),
+                ),
+                AssessmentEvent(
+                    event_id="base-2",
+                    text="hello world",
+                    risk_score=0.22,
+                    decision=Decision.ALLOW,
+                    reason="bert_risk_low",
+                    detector_used="bert",
+                    created_at=datetime.now(timezone.utc),
+                ),
+            ]
+
+    import app.batch.compute_metrics as compute_module
+
+    original_builder = compute_module._build_assessment_store
+    compute_module._build_assessment_store = lambda: StubStore()  # type: ignore[assignment]
+    try:
+        first = compute_drift_metrics(run_date="2026-03-01", output_dir=str(tmp_path))
+        second = compute_drift_metrics(run_date="2026-03-01", output_dir=str(tmp_path))
+    finally:
+        compute_module._build_assessment_store = original_builder  # type: ignore[assignment]
 
     assert first == second
     assert first.exists()
-    assert first.read_text(encoding="utf-8") == '{"psi": 0.12, "csi": 0.08}'
+    payload = json.loads(first.read_text(encoding="utf-8"))
+    assert payload["current_count"] == 1
+    assert payload["baseline_count"] == 2
+    assert payload["psi"] >= 0.0
+    assert payload["csi"] >= 0.0
+
+
+def test_compute_drift_metrics_returns_zero_when_no_source_data(tmp_path: Path) -> None:
+    class EmptyStore:
+        def list_events_for_day(self, target_day: date) -> list[AssessmentEvent]:
+            _ = target_day
+            return []
+
+        def list_events_between(self, start, end) -> list[AssessmentEvent]:
+            _ = (start, end)
+            return []
+
+    import app.batch.compute_metrics as compute_module
+
+    original_builder = compute_module._build_assessment_store
+    compute_module._build_assessment_store = lambda: EmptyStore()  # type: ignore[assignment]
+    try:
+        artifact = compute_drift_metrics(run_date="2026-03-01", output_dir=str(tmp_path))
+    finally:
+        compute_module._build_assessment_store = original_builder  # type: ignore[assignment]
+
+    payload = json.loads(artifact.read_text(encoding="utf-8"))
+    assert payload == asdict(DriftMetrics(psi=0.0, csi=0.0, current_count=0, baseline_count=0))
 
 
 def test_prepare_drift_output_dir_creates_directory(tmp_path: Path) -> None:

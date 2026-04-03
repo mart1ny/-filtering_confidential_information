@@ -47,6 +47,12 @@ with DAG(
             "AWS_DEFAULT_REGION",
             "S3_ENDPOINT_URL",
             "DRIFT_RESULTS_S3_URI_PREFIX",
+            "REVIEW_DATABASE_URL",
+            "REVIEW_DB_HOST",
+            "REVIEW_DB_PORT",
+            "REVIEW_DB_NAME",
+            "REVIEW_DB_USER",
+            "REVIEW_DB_PASSWORD",
         ),
     )
     shared_mounts = [
