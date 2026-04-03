@@ -48,7 +48,7 @@ def _iter_files(directory: Path) -> Iterator[Path]:
             yield path
 
 
-def _create_s3_client():  # type: ignore[no-untyped-def]
+def _create_s3_client():
     try:
         import boto3
     except ModuleNotFoundError as exc:
