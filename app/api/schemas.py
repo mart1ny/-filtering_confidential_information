@@ -1,5 +1,3 @@
-# pylint: disable=duplicate-code
-
 from typing import Any
 
 from pydantic import BaseModel, Field

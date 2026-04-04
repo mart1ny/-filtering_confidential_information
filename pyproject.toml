@@ -82,6 +82,7 @@ disable = [
   "missing-class-docstring",
   "missing-function-docstring",
   "too-few-public-methods",
+  "duplicate-code",
   "import-outside-toplevel",
   "too-many-instance-attributes",
   "too-many-locals",
