@@ -2,8 +2,12 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Iterator
+from typing import Any, Iterator, Protocol, cast
 from urllib.parse import urlparse
+
+
+class S3UploadClient(Protocol):
+    def upload_file(self, local_path: str, bucket: str, key: str) -> None: ...
 
 
 def upload_file_if_configured(file_path: Path, s3_uri_prefix: str | None) -> None:
@@ -48,7 +52,7 @@ def _iter_files(directory: Path) -> Iterator[Path]:
             yield path
 
 
-def _create_s3_client():
+def _create_s3_client() -> S3UploadClient:
     try:
         import boto3
     except ModuleNotFoundError as exc:
@@ -59,9 +63,9 @@ def _create_s3_client():
 
     endpoint_url = os.environ.get("S3_ENDPOINT_URL")
     region_name = os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION")
-    client_kwargs = {}
+    client_kwargs: dict[str, Any] = {}
     if endpoint_url:
         client_kwargs["endpoint_url"] = endpoint_url
     if region_name:
         client_kwargs["region_name"] = region_name
-    return boto3.client("s3", **client_kwargs)
+    return cast(S3UploadClient, boto3.client("s3", **client_kwargs))

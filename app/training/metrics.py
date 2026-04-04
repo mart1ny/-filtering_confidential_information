@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import numpy as np
+from numpy.typing import NDArray
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, roc_auc_score
 
 
@@ -16,7 +17,9 @@ class ClassificationMetrics:
 
 
 def evaluate_classification(
-    y_true: np.ndarray, y_prob: np.ndarray, threshold: float = 0.5
+    y_true: NDArray[np.int_],
+    y_prob: NDArray[np.float64],
+    threshold: float = 0.5,
 ) -> dict[str, float]:
     y_pred = (y_prob >= threshold).astype(int)
     metrics = ClassificationMetrics(
@@ -35,13 +38,15 @@ def evaluate_classification(
     }
 
 
-def trainer_compute_metrics(eval_pred: tuple[np.ndarray, np.ndarray]) -> dict[str, float]:
+def trainer_compute_metrics(
+    eval_pred: tuple[NDArray[np.float64], NDArray[np.int_]],
+) -> dict[str, float]:
     logits, labels = eval_pred
     probs = softmax(logits)[:, 1]
     return evaluate_classification(labels.astype(int), probs, threshold=0.5)
 
 
-def softmax(logits: np.ndarray) -> np.ndarray:
+def softmax(logits: NDArray[np.float64]) -> NDArray[np.float64]:
     shifted = logits - np.max(logits, axis=1, keepdims=True)
     exp_values = np.exp(shifted)
-    return exp_values / np.sum(exp_values, axis=1, keepdims=True)
+    return np.asarray(exp_values / np.sum(exp_values, axis=1, keepdims=True), dtype=np.float64)

@@ -9,6 +9,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 from datasets import Dataset
+from numpy.typing import NDArray
 from transformers import (
     AutoModelForSequenceClassification,
     AutoTokenizer,
@@ -78,7 +79,7 @@ def tokenize_dataset(
     max_length: int,
 ) -> Dataset:
     def _tokenize(batch: dict[str, list[Any]]) -> dict[str, Any]:
-        return tokenizer(batch[text_column], truncation=True, max_length=max_length)
+        return dict(tokenizer(batch[text_column], truncation=True, max_length=max_length))
 
     return dataset.map(_tokenize, batched=True)
 
@@ -180,10 +181,10 @@ def main() -> None:
     upload_directory_if_configured(config.output_dir, os.environ.get("TRAIN_RESULTS_S3_URI_PREFIX"))
 
 
-def softmax_logits(logits: np.ndarray) -> np.ndarray:
+def softmax_logits(logits: NDArray[np.float64]) -> NDArray[np.float64]:
     shifted = logits - np.max(logits, axis=1, keepdims=True)
     exp_values = np.exp(shifted)
-    return exp_values / np.sum(exp_values, axis=1, keepdims=True)
+    return np.asarray(exp_values / np.sum(exp_values, axis=1, keepdims=True), dtype=np.float64)
 
 
 if __name__ == "__main__":
