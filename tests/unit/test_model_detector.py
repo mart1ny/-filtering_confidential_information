@@ -194,6 +194,8 @@ def test_ensure_runtime_raises_when_local_model_cannot_be_loaded(
 def test_ensure_runtime_downloads_model_from_s3_when_local_checkpoint_is_missing(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    cache_dir = tmp_path / "cache"
+    monkeypatch.setenv("MODEL_CACHE_DIR", str(cache_dir))
     detector = BertDetector(
         thresholds=DetectorThresholds(allow=0.3, block=0.7),
         model_path=str(tmp_path / "model"),
@@ -239,8 +241,9 @@ def test_ensure_runtime_downloads_model_from_s3_when_local_checkpoint_is_missing
 
     detector._ensure_runtime()
 
-    assert download_calls == [(tmp_path / "model", "s3://bucket-name/models/current")]
+    expected_cache_dir = cache_dir / "model"
+    assert download_calls == [(expected_cache_dir, "s3://bucket-name/models/current")]
     assert calls == [
-        ("tokenizer", str(tmp_path / "model"), {}),
-        ("model", str(tmp_path / "model"), {}),
+        ("tokenizer", str(expected_cache_dir), {}),
+        ("model", str(expected_cache_dir), {}),
     ]

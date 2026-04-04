@@ -1,4 +1,5 @@
 import logging
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -81,17 +82,18 @@ class BertDetector:
         if self._runtime is not None:
             return self._runtime
 
-        model_dir = Path(self._model_path)
-        if not self._has_required_artifacts(model_dir):
+        load_path = self._resolve_model_path()
+        if not self._has_required_artifacts(load_path):
             if self._model_s3_uri:
                 logger.info(
-                    "Local model checkpoint is missing or incomplete, downloading from S3: %s",
+                    "Model checkpoint is missing or incomplete at %s, downloading from S3: %s",
+                    load_path,
                     self._model_s3_uri,
                 )
-                downloaded_any = download_directory_if_configured(model_dir, self._model_s3_uri)
+                downloaded_any = download_directory_if_configured(load_path, self._model_s3_uri)
                 if downloaded_any:
-                    logger.info("Downloaded model artifacts from S3 into %s", model_dir)
-            if not self._has_required_artifacts(model_dir):
+                    logger.info("Downloaded model artifacts from S3 into %s", load_path)
+            if not self._has_required_artifacts(load_path):
                 raise RuntimeError(
                     "Could not load classification model from MODEL_PATH. "
                     "Provide a valid fine-tuned checkpoint or configure MODEL_S3_URI."
@@ -104,8 +106,8 @@ class BertDetector:
             raise RuntimeError("BERT dependencies are not installed") from error
 
         try:
-            tokenizer = AutoTokenizer.from_pretrained(self._model_path)
-            model = AutoModelForSequenceClassification.from_pretrained(self._model_path)
+            tokenizer = AutoTokenizer.from_pretrained(str(load_path))
+            model = AutoModelForSequenceClassification.from_pretrained(str(load_path))
         except Exception as error:
             raise RuntimeError(
                 "Could not load classification model from MODEL_PATH. "
@@ -118,6 +120,16 @@ class BertDetector:
         model.eval()
         self._runtime = _ModelRuntime(tokenizer=tokenizer, model=model, torch=torch)
         return self._runtime
+
+    def _resolve_model_path(self) -> Path:
+        model_dir = Path(self._model_path)
+        if self._has_required_artifacts(model_dir):
+            return model_dir
+
+        cache_root = Path(os.environ.get("MODEL_CACHE_DIR", "/tmp/confidential-model-cache"))
+        cache_dir = cache_root / model_dir.name
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        return cache_dir
 
     @staticmethod
     def _has_required_artifacts(model_dir: Path) -> bool:
