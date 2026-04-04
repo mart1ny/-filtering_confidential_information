@@ -57,10 +57,9 @@ services:
       TRAIN_RESULTS_S3_URI_PREFIX: ${TRAIN_RESULTS_S3_URI_PREFIX:-}
       AIRFLOW_WEB_USER: ${AIRFLOW_WEB_USER:-airflow}
       AIRFLOW_WEB_PASSWORD: ${AIRFLOW_WEB_PASSWORD:-airflow}
-    entrypoint:
-      - /bin/bash
-      - -lc
     command:
+      - bash
+      - -lc
       - |
         set -euo pipefail
         airflow db migrate
