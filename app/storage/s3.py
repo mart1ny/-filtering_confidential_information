@@ -52,11 +52,13 @@ def download_directory_if_configured(directory: Path, s3_uri_prefix: str | None)
     continuation_token: str | None = None
 
     while True:
-        response = client.list_objects_v2(
-            Bucket=bucket,
-            Prefix=prefix,
-            ContinuationToken=continuation_token,
-        )
+        request_kwargs: dict[str, Any] = {
+            "Bucket": bucket,
+            "Prefix": prefix,
+        }
+        if continuation_token is not None:
+            request_kwargs["ContinuationToken"] = continuation_token
+        response = client.list_objects_v2(**request_kwargs)
         contents = response.get("Contents", [])
         for item in contents:
             key = str(item["Key"])

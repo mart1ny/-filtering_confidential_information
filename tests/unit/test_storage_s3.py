@@ -89,6 +89,7 @@ def test_download_directory_if_configured_restores_s3_prefix(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     downloads: list[tuple[str, str, str]] = []
+    continuation_tokens: list[str | None] = []
 
     class FakeS3Client:
         def list_objects_v2(
@@ -100,7 +101,7 @@ def test_download_directory_if_configured_restores_s3_prefix(
         ) -> dict[str, object]:
             assert Bucket == "bucket-name"
             assert Prefix == "training-runs/run-1/model"
-            assert ContinuationToken is None
+            continuation_tokens.append(ContinuationToken)
             return {
                 "Contents": [
                     {"Key": "training-runs/run-1/model/config.json"},
@@ -125,6 +126,7 @@ def test_download_directory_if_configured_restores_s3_prefix(
     )
 
     assert downloaded is True
+    assert continuation_tokens == [None]
     assert downloads == [
         ("bucket-name", "training-runs/run-1/model/config.json", str(tmp_path / "config.json")),
         (
