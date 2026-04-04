@@ -62,7 +62,7 @@ services:
       - -lc
       - |
         set -euo pipefail
-        airflow db migrate
+        /home/airflow/.local/bin/airflow db migrate
         python -c 'import textwrap; exec(textwrap.dedent("""import os
         from airflow.www.app import create_app
         from werkzeug.security import generate_password_hash
