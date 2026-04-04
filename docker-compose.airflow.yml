@@ -82,14 +82,14 @@ services:
             if user is None:
                 user = sm.user_model()
                 session.add(user)
-            user.username = username
-            user.first_name = "Air"
-            user.last_name = "Flow"
-            user.email = "airflow@example.com"
-            user.active = True
-            user.password = generate_password_hash(password)
-            user.roles = [role]
-            session.commit()
+                user.username = username
+                user.first_name = "Air"
+                user.last_name = "Flow"
+                user.email = "airflow@example.com"
+                user.active = True
+                user.password = generate_password_hash(password)
+                user.roles = [role]
+                session.commit()
         """))'
     volumes:
       - ./dags:/opt/airflow/dags
