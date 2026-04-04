@@ -83,21 +83,6 @@ class BertDetector:
             return self._runtime
 
         load_path = self._resolve_model_path()
-        if not self._has_required_artifacts(load_path):
-            if self._model_s3_uri:
-                logger.info(
-                    "Model checkpoint is missing or incomplete at %s, downloading from S3: %s",
-                    load_path,
-                    self._model_s3_uri,
-                )
-                downloaded_any = download_directory_if_configured(load_path, self._model_s3_uri)
-                if downloaded_any:
-                    logger.info("Downloaded model artifacts from S3 into %s", load_path)
-            if not self._has_required_artifacts(load_path):
-                raise RuntimeError(
-                    "Could not load classification model from MODEL_PATH. "
-                    "Provide a valid fine-tuned checkpoint or configure MODEL_S3_URI."
-                )
 
         try:
             import torch
@@ -123,13 +108,30 @@ class BertDetector:
 
     def _resolve_model_path(self) -> Path:
         model_dir = Path(self._model_path)
+        if self._model_s3_uri:
+            cache_root = Path(os.environ.get("MODEL_CACHE_DIR", "/tmp/confidential-model-cache"))
+            cache_dir = cache_root / model_dir.name
+            cache_dir.mkdir(parents=True, exist_ok=True)
+            try:
+                logger.info("Downloading model checkpoint from S3 into %s", cache_dir)
+                downloaded_any = download_directory_if_configured(cache_dir, self._model_s3_uri)
+                if downloaded_any and self._has_required_artifacts(cache_dir):
+                    logger.info("Using model checkpoint from S3 cache: %s", cache_dir)
+                    return cache_dir
+                logger.warning(
+                    "MODEL_S3_URI is configured but the downloaded checkpoint is incomplete: %s",
+                    self._model_s3_uri,
+                )
+            except Exception as error:
+                logger.warning("Could not download model checkpoint from S3: %s", error)
+
         if self._has_required_artifacts(model_dir):
             return model_dir
 
-        cache_root = Path(os.environ.get("MODEL_CACHE_DIR", "/tmp/confidential-model-cache"))
-        cache_dir = cache_root / model_dir.name
-        cache_dir.mkdir(parents=True, exist_ok=True)
-        return cache_dir
+        raise RuntimeError(
+            "Could not load classification model from MODEL_PATH. "
+            "Provide a valid fine-tuned checkpoint or configure MODEL_S3_URI."
+        )
 
     @staticmethod
     def _has_required_artifacts(model_dir: Path) -> bool:

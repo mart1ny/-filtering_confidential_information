@@ -247,3 +247,116 @@ def test_ensure_runtime_downloads_model_from_s3_when_local_checkpoint_is_missing
         ("tokenizer", str(expected_cache_dir), {}),
         ("model", str(expected_cache_dir), {}),
     ]
+
+
+def test_ensure_runtime_prefers_s3_model_over_local_checkpoint(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    local_dir = tmp_path / "model"
+    local_dir.mkdir(parents=True, exist_ok=True)
+    (local_dir / "config.json").write_text("{}", encoding="utf-8")
+    (local_dir / "tokenizer_config.json").write_text("{}", encoding="utf-8")
+    (local_dir / "tokenizer.json").write_text("{}", encoding="utf-8")
+    (local_dir / "model.safetensors").write_text("local-weights", encoding="utf-8")
+
+    cache_dir = tmp_path / "cache"
+    monkeypatch.setenv("MODEL_CACHE_DIR", str(cache_dir))
+
+    detector = BertDetector(
+        thresholds=DetectorThresholds(allow=0.3, block=0.7),
+        model_path=str(local_dir),
+        model_name="remote-model",
+        model_s3_uri="s3://bucket-name/models/current",
+        model_device=-1,
+    )
+    calls: list[tuple[str, str, dict[str, object]]] = []
+
+    def fake_download(target_dir: Path, s3_uri_prefix: str | None) -> bool:
+        assert s3_uri_prefix == "s3://bucket-name/models/current"
+        target_dir.mkdir(parents=True, exist_ok=True)
+        (target_dir / "config.json").write_text("{}", encoding="utf-8")
+        (target_dir / "tokenizer_config.json").write_text("{}", encoding="utf-8")
+        (target_dir / "tokenizer.json").write_text("{}", encoding="utf-8")
+        (target_dir / "model.safetensors").write_text("s3-weights", encoding="utf-8")
+        return True
+
+    class AutoTokenizer:
+        @staticmethod
+        def from_pretrained(name: str) -> _FakeTokenizer:
+            calls.append(("tokenizer", name, {}))
+            return _FakeTokenizer()
+
+    class AutoModelForSequenceClassification:
+        @staticmethod
+        def from_pretrained(name: str, **kwargs: object) -> _FakeModel:
+            calls.append(("model", name, kwargs))
+            return _FakeModel()
+
+    transformers_module = ModuleType("transformers")
+    transformers_module.AutoTokenizer = AutoTokenizer
+    transformers_module.AutoModelForSequenceClassification = AutoModelForSequenceClassification
+    torch_module = _FakeTorch(positive_probability=0.2, cuda_available=False)
+
+    monkeypatch.setattr(
+        "app.adapters.detectors.model_detector.download_directory_if_configured", fake_download
+    )
+    monkeypatch.setitem(__import__("sys").modules, "transformers", transformers_module)
+    monkeypatch.setitem(__import__("sys").modules, "torch", torch_module)
+
+    detector._ensure_runtime()
+
+    assert calls == [
+        ("tokenizer", str(cache_dir / "model"), {}),
+        ("model", str(cache_dir / "model"), {}),
+    ]
+
+
+def test_ensure_runtime_falls_back_to_local_model_when_s3_download_fails(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    local_dir = tmp_path / "model"
+    local_dir.mkdir(parents=True, exist_ok=True)
+    (local_dir / "config.json").write_text("{}", encoding="utf-8")
+    (local_dir / "tokenizer_config.json").write_text("{}", encoding="utf-8")
+    (local_dir / "tokenizer.json").write_text("{}", encoding="utf-8")
+    (local_dir / "model.safetensors").write_text("local-weights", encoding="utf-8")
+
+    detector = BertDetector(
+        thresholds=DetectorThresholds(allow=0.3, block=0.7),
+        model_path=str(local_dir),
+        model_name="remote-model",
+        model_s3_uri="s3://bucket-name/models/current",
+        model_device=-1,
+    )
+    calls: list[tuple[str, str, dict[str, object]]] = []
+
+    class AutoTokenizer:
+        @staticmethod
+        def from_pretrained(name: str) -> _FakeTokenizer:
+            calls.append(("tokenizer", name, {}))
+            return _FakeTokenizer()
+
+    class AutoModelForSequenceClassification:
+        @staticmethod
+        def from_pretrained(name: str, **kwargs: object) -> _FakeModel:
+            calls.append(("model", name, kwargs))
+            return _FakeModel()
+
+    transformers_module = ModuleType("transformers")
+    transformers_module.AutoTokenizer = AutoTokenizer
+    transformers_module.AutoModelForSequenceClassification = AutoModelForSequenceClassification
+    torch_module = _FakeTorch(positive_probability=0.2, cuda_available=False)
+
+    monkeypatch.setattr(
+        "app.adapters.detectors.model_detector.download_directory_if_configured",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("s3 unavailable")),
+    )
+    monkeypatch.setitem(__import__("sys").modules, "transformers", transformers_module)
+    monkeypatch.setitem(__import__("sys").modules, "torch", torch_module)
+
+    detector._ensure_runtime()
+
+    assert calls == [
+        ("tokenizer", str(local_dir), {}),
+        ("model", str(local_dir), {}),
+    ]
