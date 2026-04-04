@@ -10,6 +10,18 @@ class S3UploadClient(Protocol):
     def upload_file(self, local_path: str, bucket: str, key: str) -> None: ...
 
 
+class S3SyncClient(S3UploadClient, Protocol):
+    def download_file(self, bucket: str, key: str, target: str) -> None: ...
+
+    def list_objects_v2(
+        self,
+        *,
+        Bucket: str,
+        Prefix: str,
+        ContinuationToken: str | None = None,
+    ) -> dict[str, Any]: ...
+
+
 def upload_file_if_configured(file_path: Path, s3_uri_prefix: str | None) -> None:
     if not s3_uri_prefix:
         return
@@ -28,6 +40,40 @@ def upload_directory_if_configured(directory: Path, s3_uri_prefix: str | None) -
         relative_key = file_path.relative_to(directory).as_posix()
         key = _join_s3_key(prefix, relative_key)
         _create_s3_client().upload_file(str(file_path), bucket, key)
+
+
+def download_directory_if_configured(directory: Path, s3_uri_prefix: str | None) -> bool:
+    if not s3_uri_prefix:
+        return False
+
+    bucket, prefix = _parse_s3_uri(s3_uri_prefix)
+    client = _create_s3_client()
+    downloaded_any = False
+    continuation_token: str | None = None
+
+    while True:
+        response = client.list_objects_v2(
+            Bucket=bucket,
+            Prefix=prefix,
+            ContinuationToken=continuation_token,
+        )
+        contents = response.get("Contents", [])
+        for item in contents:
+            key = str(item["Key"])
+            prefix_with_slash = f"{prefix.rstrip('/')}/" if prefix else ""
+            relative_key = key.removeprefix(prefix_with_slash) if prefix_with_slash else key
+            if not relative_key or relative_key.endswith("/"):
+                continue
+            target_path = directory / relative_key
+            target_path.parent.mkdir(parents=True, exist_ok=True)
+            client.download_file(bucket, key, str(target_path))
+            downloaded_any = True
+
+        if not response.get("IsTruncated"):
+            break
+        continuation_token = str(response["NextContinuationToken"])
+
+    return downloaded_any
 
 
 def _parse_s3_uri(uri: str) -> tuple[str, str]:
@@ -52,7 +98,7 @@ def _iter_files(directory: Path) -> Iterator[Path]:
             yield path
 
 
-def _create_s3_client() -> S3UploadClient:
+def _create_s3_client() -> S3SyncClient:
     try:
         import boto3
     except ModuleNotFoundError as exc:
@@ -68,4 +114,4 @@ def _create_s3_client() -> S3UploadClient:
         client_kwargs["endpoint_url"] = endpoint_url
     if region_name:
         client_kwargs["region_name"] = region_name
-    return cast(S3UploadClient, boto3.client("s3", **client_kwargs))
+    return cast(S3SyncClient, boto3.client("s3", **client_kwargs))

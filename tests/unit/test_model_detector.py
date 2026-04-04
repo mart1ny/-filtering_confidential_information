@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import builtins
 from dataclasses import dataclass
+from pathlib import Path
 from types import ModuleType, SimpleNamespace
 from typing import Any
 
@@ -80,6 +81,7 @@ def _build_detector() -> BertDetector:
         thresholds=DetectorThresholds(allow=0.3, block=0.7),
         model_path="local-model",
         model_name="remote-model",
+        model_s3_uri=None,
         model_device=-1,
     )
 
@@ -130,6 +132,7 @@ def test_ensure_runtime_raises_when_dependencies_are_missing(
 ) -> None:
     detector = _build_detector()
     original_import = builtins.__import__
+    monkeypatch.setattr(detector, "_has_required_artifacts", lambda _path: True)
 
     def fake_import(name: str, *args: Any, **kwargs: Any) -> Any:
         if name in {"torch", "transformers"}:
@@ -149,6 +152,7 @@ def test_ensure_runtime_raises_when_local_model_cannot_be_loaded(
         thresholds=DetectorThresholds(allow=0.3, block=0.7),
         model_path="missing-local",
         model_name="remote-model",
+        model_s3_uri=None,
         model_device=0,
     )
     fake_model = _FakeModel()
@@ -175,6 +179,7 @@ def test_ensure_runtime_raises_when_local_model_cannot_be_loaded(
     transformers_module.AutoModelForSequenceClassification = AutoModelForSequenceClassification
     torch_module = _FakeTorch(positive_probability=0.2, cuda_available=True)
 
+    monkeypatch.setattr(detector, "_has_required_artifacts", lambda _path: True)
     monkeypatch.setitem(__import__("sys").modules, "transformers", transformers_module)
     monkeypatch.setitem(__import__("sys").modules, "torch", torch_module)
 
@@ -184,3 +189,58 @@ def test_ensure_runtime_raises_when_local_model_cannot_be_loaded(
     assert fake_model.sent_to_device is None
     assert fake_model.eval_called is False
     assert calls == [("tokenizer", "missing-local", {})]
+
+
+def test_ensure_runtime_downloads_model_from_s3_when_local_checkpoint_is_missing(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    detector = BertDetector(
+        thresholds=DetectorThresholds(allow=0.3, block=0.7),
+        model_path=str(tmp_path / "model"),
+        model_name="remote-model",
+        model_s3_uri="s3://bucket-name/models/current",
+        model_device=-1,
+    )
+    fake_model = _FakeModel()
+    calls: list[tuple[str, str, dict[str, object]]] = []
+    download_calls: list[tuple[Path, str | None]] = []
+
+    def fake_download(target_dir: Path, s3_uri_prefix: str | None) -> bool:
+        download_calls.append((target_dir, s3_uri_prefix))
+        target_dir.mkdir(parents=True, exist_ok=True)
+        (target_dir / "config.json").write_text("{}", encoding="utf-8")
+        (target_dir / "tokenizer_config.json").write_text("{}", encoding="utf-8")
+        (target_dir / "tokenizer.json").write_text("{}", encoding="utf-8")
+        (target_dir / "model.safetensors").write_text("weights", encoding="utf-8")
+        return True
+
+    class AutoTokenizer:
+        @staticmethod
+        def from_pretrained(name: str) -> _FakeTokenizer:
+            calls.append(("tokenizer", name, {}))
+            return _FakeTokenizer()
+
+    class AutoModelForSequenceClassification:
+        @staticmethod
+        def from_pretrained(name: str, **kwargs: object) -> _FakeModel:
+            calls.append(("model", name, kwargs))
+            return fake_model
+
+    transformers_module = ModuleType("transformers")
+    transformers_module.AutoTokenizer = AutoTokenizer
+    transformers_module.AutoModelForSequenceClassification = AutoModelForSequenceClassification
+    torch_module = _FakeTorch(positive_probability=0.2, cuda_available=False)
+
+    monkeypatch.setattr(
+        "app.adapters.detectors.model_detector.download_directory_if_configured", fake_download
+    )
+    monkeypatch.setitem(__import__("sys").modules, "transformers", transformers_module)
+    monkeypatch.setitem(__import__("sys").modules, "torch", torch_module)
+
+    detector._ensure_runtime()
+
+    assert download_calls == [(tmp_path / "model", "s3://bucket-name/models/current")]
+    assert calls == [
+        ("tokenizer", str(tmp_path / "model"), {}),
+        ("model", str(tmp_path / "model"), {}),
+    ]

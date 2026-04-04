@@ -4,7 +4,11 @@ from types import ModuleType
 
 import pytest
 
-from app.storage.s3 import upload_directory_if_configured, upload_file_if_configured
+from app.storage.s3 import (
+    download_directory_if_configured,
+    upload_directory_if_configured,
+    upload_file_if_configured,
+)
 
 
 def test_upload_file_if_configured_uploads_to_expected_s3_key(
@@ -79,3 +83,56 @@ def test_upload_file_if_configured_raises_for_invalid_uri(tmp_path: Path) -> Non
 
     with pytest.raises(ValueError, match="Invalid S3 URI"):
         upload_file_if_configured(file_path, "s3://")
+
+
+def test_download_directory_if_configured_restores_s3_prefix(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    downloads: list[tuple[str, str, str]] = []
+
+    class FakeS3Client:
+        def list_objects_v2(
+            self,
+            *,
+            Bucket: str,
+            Prefix: str,
+            ContinuationToken: str | None = None,
+        ) -> dict[str, object]:
+            assert Bucket == "bucket-name"
+            assert Prefix == "training-runs/run-1/model"
+            assert ContinuationToken is None
+            return {
+                "Contents": [
+                    {"Key": "training-runs/run-1/model/config.json"},
+                    {"Key": "training-runs/run-1/model/nested/tokenizer.json"},
+                ],
+                "IsTruncated": False,
+            }
+
+        def download_file(self, bucket: str, key: str, target: str) -> None:
+            downloads.append((bucket, key, target))
+            Path(target).write_text(key, encoding="utf-8")
+
+        def upload_file(self, local_path: str, bucket: str, key: str) -> None:
+            _ = (local_path, bucket, key)
+
+    fake_boto3 = ModuleType("boto3")
+    fake_boto3.client = lambda *_args, **_kwargs: FakeS3Client()  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "boto3", fake_boto3)
+
+    downloaded = download_directory_if_configured(
+        tmp_path, "s3://bucket-name/training-runs/run-1/model"
+    )
+
+    assert downloaded is True
+    assert downloads == [
+        ("bucket-name", "training-runs/run-1/model/config.json", str(tmp_path / "config.json")),
+        (
+            "bucket-name",
+            "training-runs/run-1/model/nested/tokenizer.json",
+            str(tmp_path / "nested" / "tokenizer.json"),
+        ),
+    ]
+    assert (tmp_path / "config.json").read_text(
+        encoding="utf-8"
+    ) == "training-runs/run-1/model/config.json"

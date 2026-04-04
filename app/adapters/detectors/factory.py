@@ -26,6 +26,7 @@ def build_text_detector(app_settings: Settings) -> TextDetector:
             thresholds=thresholds,
             model_path=app_settings.model_path,
             model_name=app_settings.model_name,
+            model_s3_uri=app_settings.model_s3_uri,
             model_device=app_settings.model_device,
         )
         # Validate model runtime at startup to avoid per-request failures.

@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     detector_backend: str = Field(default="hybrid", alias="DETECTOR_BACKEND")
     model_path: str = Field(default="bert_classifier/model", alias="MODEL_PATH")
     model_name: str = Field(default="distilbert-base-uncased", alias="MODEL_NAME")
+    model_s3_uri: str | None = Field(default=None, alias="MODEL_S3_URI")
     model_device: int = Field(default=-1, alias="MODEL_DEVICE")
     review_storage_dir: str = Field(default="review_data", alias="REVIEW_STORAGE_DIR")
     review_database_url: str | None = Field(default=None, alias="REVIEW_DATABASE_URL")

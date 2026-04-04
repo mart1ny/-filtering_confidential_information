@@ -1,8 +1,13 @@
+import logging
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from app.adapters.detectors.rule_detector import DetectorThresholds
 from app.domain.models import Decision, RiskAssessment, build_empty_text_assessment
+from app.storage.s3 import download_directory_if_configured
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -18,11 +23,13 @@ class BertDetector:
         thresholds: DetectorThresholds,
         model_path: str,
         model_name: str,
+        model_s3_uri: str | None,
         model_device: int,
     ) -> None:
         self._thresholds = thresholds
         self._model_path = model_path
         self._model_name = model_name
+        self._model_s3_uri = model_s3_uri
         self._model_device = model_device
         self._runtime: _ModelRuntime | None = None
 
@@ -74,6 +81,22 @@ class BertDetector:
         if self._runtime is not None:
             return self._runtime
 
+        model_dir = Path(self._model_path)
+        if not self._has_required_artifacts(model_dir):
+            if self._model_s3_uri:
+                logger.info(
+                    "Local model checkpoint is missing or incomplete, downloading from S3: %s",
+                    self._model_s3_uri,
+                )
+                downloaded_any = download_directory_if_configured(model_dir, self._model_s3_uri)
+                if downloaded_any:
+                    logger.info("Downloaded model artifacts from S3 into %s", model_dir)
+            if not self._has_required_artifacts(model_dir):
+                raise RuntimeError(
+                    "Could not load classification model from MODEL_PATH. "
+                    "Provide a valid fine-tuned checkpoint or configure MODEL_S3_URI."
+                )
+
         try:
             import torch
             from transformers import AutoModelForSequenceClassification, AutoTokenizer
@@ -86,7 +109,7 @@ class BertDetector:
         except Exception as error:
             raise RuntimeError(
                 "Could not load classification model from MODEL_PATH. "
-                "Provide a valid fine-tuned checkpoint."
+                "Provide a valid fine-tuned checkpoint or configure MODEL_S3_URI."
             ) from error
 
         if self._model_device >= 0 and torch.cuda.is_available():
@@ -95,3 +118,27 @@ class BertDetector:
         model.eval()
         self._runtime = _ModelRuntime(tokenizer=tokenizer, model=model, torch=torch)
         return self._runtime
+
+    @staticmethod
+    def _has_required_artifacts(model_dir: Path) -> bool:
+        if not model_dir.exists() or not model_dir.is_dir():
+            return False
+
+        required_files = {
+            "config.json",
+            "tokenizer_config.json",
+        }
+        if not required_files.issubset(
+            {path.name for path in model_dir.iterdir() if path.is_file()}
+        ):
+            return False
+
+        has_weights = any(
+            (model_dir / filename).is_file()
+            for filename in ("model.safetensors", "pytorch_model.bin")
+        )
+        has_tokenizer = any(
+            (model_dir / filename).is_file()
+            for filename in ("tokenizer.json", "vocab.txt", "sentencepiece.bpe.model")
+        )
+        return has_weights and has_tokenizer
