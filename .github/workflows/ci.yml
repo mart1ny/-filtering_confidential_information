@@ -186,15 +186,23 @@ jobs:
           )
           PY
 
-      - name: Upload model to remote server
+      - name: Prepare SSH for model sync
         if: steps.model-source.outputs.use_remote_model != 'true'
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          source: "model_payload/model/*"
-          target: "${{ secrets.DEPLOY_PATH }}/bert_classifier/model"
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' '${{ secrets.DEPLOY_SSH_KEY }}' > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Sync model artifacts to remote server
+        if: steps.model-source.outputs.use_remote_model != 'true'
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          ssh -i ~/.ssh/deploy_key "${DEPLOY_USER}@${DEPLOY_HOST}" "mkdir -p '${DEPLOY_PATH}/bert_classifier/model'"
+          rsync -az --delete -e "ssh -i ~/.ssh/deploy_key" model_payload/model/ "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/bert_classifier/model/"
 
   deploy:
     name: Deploy to Remote Server
@@ -205,14 +213,23 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Upload Airflow files to remote server
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          source: "dags/*,docker-compose.airflow.yml,dataset/ds.parquet"
-          target: "${{ secrets.DEPLOY_PATH }}"
+      - name: Prepare SSH for deploy sync
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' '${{ secrets.DEPLOY_SSH_KEY }}' > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Sync Airflow files to remote server
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          ssh -i ~/.ssh/deploy_key "${DEPLOY_USER}@${DEPLOY_HOST}" "mkdir -p '${DEPLOY_PATH}/dags' '${DEPLOY_PATH}/dataset'"
+          rsync -az --delete -e "ssh -i ~/.ssh/deploy_key" dags/ "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/dags/"
+          rsync -az -e "ssh -i ~/.ssh/deploy_key" docker-compose.airflow.yml "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/docker-compose.airflow.yml"
+          rsync -az -e "ssh -i ~/.ssh/deploy_key" dataset/ds.parquet "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/dataset/ds.parquet"
 
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.2.0
