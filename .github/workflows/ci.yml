@@ -229,7 +229,11 @@ jobs:
           ssh -i ~/.ssh/deploy_key "${DEPLOY_USER}@${DEPLOY_HOST}" "mkdir -p '${DEPLOY_PATH}/dags' '${DEPLOY_PATH}/dataset'"
           rsync -az --delete -e "ssh -i ~/.ssh/deploy_key" dags/ "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/dags/"
           rsync -az -e "ssh -i ~/.ssh/deploy_key" docker-compose.airflow.yml "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/docker-compose.airflow.yml"
-          rsync -az -e "ssh -i ~/.ssh/deploy_key" dataset/ds.parquet "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/dataset/ds.parquet"
+          if [ -f "dataset/ds.parquet" ]; then
+            rsync -az -e "ssh -i ~/.ssh/deploy_key" dataset/ds.parquet "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/dataset/ds.parquet"
+          else
+            echo "dataset/ds.parquet is missing, skipping dataset sync"
+          fi
 
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.2.0
