@@ -485,9 +485,22 @@ jobs:
 
             kctl apply -f k8s/secret.generated.yaml
             kctl apply -k k8s/
-            kctl -n "${K8S_NAMESPACE}" rollout restart deployment/app deployment/frontend
-            kctl -n "${K8S_NAMESPACE}" rollout status deployment/app --timeout=180s
-            kctl -n "${K8S_NAMESPACE}" rollout status deployment/frontend --timeout=180s
+            if ! kctl -n "${K8S_NAMESPACE}" rollout status deployment/app --timeout=180s; then
+              echo "App rollout failed"
+              kctl -n "${K8S_NAMESPACE}" get pods -o wide || true
+              kctl -n "${K8S_NAMESPACE}" describe deployment app || true
+              kctl -n "${K8S_NAMESPACE}" describe pods -l app.kubernetes.io/name=app || true
+              kctl -n "${K8S_NAMESPACE}" logs deployment/app --tail=200 || true
+              exit 1
+            fi
+            if ! kctl -n "${K8S_NAMESPACE}" rollout status deployment/frontend --timeout=180s; then
+              echo "Frontend rollout failed"
+              kctl -n "${K8S_NAMESPACE}" get pods -o wide || true
+              kctl -n "${K8S_NAMESPACE}" describe deployment frontend || true
+              kctl -n "${K8S_NAMESPACE}" describe pods -l app.kubernetes.io/name=frontend || true
+              kctl -n "${K8S_NAMESPACE}" logs deployment/frontend --tail=200 || true
+              exit 1
+            fi
 
             mkdir -p dags
             docker compose -p "${AIRFLOW_PROJECT}" -f docker-compose.airflow.yml down -v --remove-orphans || true
