@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: confidential-filter-config
+  namespace: confidential-filter
+data:
+  APP_NAME: confidential-filter-service
+  APP_ENV: production
+  APP_HOST: 0.0.0.0
+  APP_PORT: "8000"
+  RISK_ALLOW_THRESHOLD: "0.55"
+  RISK_BLOCK_THRESHOLD: "0.85"
+  DETECTOR_BACKEND: hybrid
+  MODEL_PATH: bert_classifier/model
+  MODEL_NAME: distilbert-base-uncased
+  MODEL_DEVICE: "-1"
+  FRONTEND_PORT: "80"

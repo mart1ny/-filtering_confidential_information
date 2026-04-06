@@ -164,6 +164,33 @@ export TRAIN_ARTIFACTS_MOUNT_SOURCE=/srv/confidential/artifacts
 docker compose -f docker-compose.airflow.yml up -d
 ```
 
+## Kubernetes
+
+Для online-части проекта подготовлены Kubernetes manifests:
+- `k8s/app-deployment.yaml`
+- `k8s/app-service.yaml`
+- `k8s/frontend-deployment.yaml`
+- `k8s/frontend-service.yaml`
+- `k8s/configmap.yaml`
+- `k8s/secret.example.yaml`
+- `k8s/ingress.example.yaml`
+
+Текущий scope Kubernetes:
+- backend
+- frontend
+
+Airflow пока остаётся вне Kubernetes.
+
+Быстрый старт:
+
+```bash
+cp k8s/secret.example.yaml k8s/secret.yaml
+# заполнить secret.yaml
+kubectl apply -f k8s/namespace.yaml
+kubectl apply -f k8s/secret.yaml
+kubectl apply -k k8s/
+```
+
 ## CI/CD
 
 Workflow: `.github/workflows/ci.yml`

@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app
+  namespace: confidential-filter
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: app
+      app.kubernetes.io/part-of: confidential-filter
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: app
+        app.kubernetes.io/part-of: confidential-filter
+    spec:
+      containers:
+        - name: app
+          image: ghcr.io/mart1ny/confidential-filter-service:latest
+          imagePullPolicy: Always
+          envFrom:
+            - configMapRef:
+                name: confidential-filter-config
+            - secretRef:
+                name: confidential-filter-secrets
+          ports:
+            - containerPort: 8000
+              name: http
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 2Gi
