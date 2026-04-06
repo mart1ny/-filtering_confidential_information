@@ -26,6 +26,9 @@ spec:
           envFrom:
             - secretRef:
                 name: airflow-secrets
+          env:
+            - name: AIRFLOW__WEBSERVER__WORKERS
+              value: "1"
           command: ["/home/airflow/.local/bin/airflow", "webserver"]
           ports:
             - containerPort: 8080
@@ -55,10 +58,10 @@ spec:
           resources:
             requests:
               cpu: 150m
-              memory: 256Mi
+              memory: 512Mi
             limits:
               cpu: 500m
-              memory: 768Mi
+              memory: 1536Mi
           volumeMounts:
             - name: dags
               mountPath: /opt/airflow/dags
