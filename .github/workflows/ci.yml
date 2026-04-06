@@ -34,14 +34,39 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen --all-groups
 
-      - name: Run linters
+      - name: Black - validate code formatting
         env:
           PYLINTHOME: .pylint.d
         run: |
+          echo "Black checks that Python files follow the configured code formatting."
           uv run black --check .
+
+      - name: isort - validate import ordering
+        env:
+          PYLINTHOME: .pylint.d
+        run: |
+          echo "isort checks that imports are grouped and ordered consistently."
           uv run isort --check-only .
+
+      - name: flake8 - validate style and basic static issues
+        env:
+          PYLINTHOME: .pylint.d
+        run: |
+          echo "flake8 checks PEP 8 style, unused imports, undefined names, and basic syntax-level issues."
           uv run flake8 app tests dags
+
+      - name: pylint - validate code quality rules
+        env:
+          PYLINTHOME: .pylint.d
+        run: |
+          echo "pylint checks code quality rules, suspicious constructs, and maintainability issues."
           uv run pylint app
+
+      - name: mypy - validate static typing
+        env:
+          PYLINTHOME: .pylint.d
+        run: |
+          echo "mypy checks type annotations and catches static typing mismatches."
           uv run mypy
 
   test:
