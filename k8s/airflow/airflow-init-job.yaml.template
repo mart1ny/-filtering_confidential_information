@@ -26,7 +26,7 @@ spec:
             - -lc
             - |
               set -euo pipefail
-              airflow db migrate
+              /home/airflow/.local/bin/airflow db migrate
               python <<'PY'
               import os
               from airflow.www.app import create_app
