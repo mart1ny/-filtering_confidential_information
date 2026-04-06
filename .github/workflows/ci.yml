@@ -577,8 +577,9 @@ jobs:
             if ! kctl -n "${K8S_NAMESPACE}" wait --for=condition=complete --timeout=180s job/airflow-init; then
               echo "Airflow init job failed"
               kctl -n "${K8S_NAMESPACE}" get pods -o wide || true
-              kctl -n "${K8S_NAMESPACE}" logs job/airflow-init --tail=200 || true
               kctl -n "${K8S_NAMESPACE}" describe job airflow-init || true
+              kctl -n "${K8S_NAMESPACE}" get pods -l job-name=airflow-init -o name | xargs -r -n1 kctl -n "${K8S_NAMESPACE}" describe || true
+              kctl -n "${K8S_NAMESPACE}" get pods -l job-name=airflow-init -o name | xargs -r -n1 kctl -n "${K8S_NAMESPACE}" logs --tail=200 || true
               exit 1
             fi
 

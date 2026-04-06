@@ -20,6 +20,9 @@ spec:
       containers:
         - name: airflow-scheduler
           image: apache/airflow:2.10.5
+          securityContext:
+            runAsUser: 0
+            runAsGroup: 0
           envFrom:
             - secretRef:
                 name: airflow-secrets
