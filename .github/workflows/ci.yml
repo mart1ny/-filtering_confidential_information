@@ -597,20 +597,24 @@ jobs:
             fi
 
             kctl apply -f k8s/airflow/airflow-secrets.generated.yaml
-            kctl -n "${K8S_NAMESPACE}" delete job airflow-init --ignore-not-found=true
-            kctl apply -f k8s/airflow/airflow-init-job.rendered.yaml
-            if ! kctl -n "${K8S_NAMESPACE}" wait --for=condition=complete --timeout=180s job/airflow-init; then
-              echo "Airflow init job failed"
-              kctl -n "${K8S_NAMESPACE}" get pods -o wide || true
-              kctl -n "${K8S_NAMESPACE}" describe job airflow-init || true
-              while IFS= read -r pod_name; do
-                [ -n "${pod_name}" ] || continue
-                kctl -n "${K8S_NAMESPACE}" describe "${pod_name}" || true
-                kctl -n "${K8S_NAMESPACE}" logs "${pod_name}" --tail=200 || true
-              done <<EOF
-            $(kctl -n "${K8S_NAMESPACE}" get pods -l job-name=airflow-init -o name || true)
-            EOF
-              exit 1
+            if kctl -n "${K8S_NAMESPACE}" get deployment airflow-webserver >/dev/null 2>&1; then
+              echo "Airflow is already initialized. Skipping airflow-init job."
+            else
+              kctl -n "${K8S_NAMESPACE}" delete job airflow-init --ignore-not-found=true
+              kctl apply -f k8s/airflow/airflow-init-job.rendered.yaml
+              if ! kctl -n "${K8S_NAMESPACE}" wait --for=condition=complete --timeout=180s job/airflow-init; then
+                echo "Airflow init job failed"
+                kctl -n "${K8S_NAMESPACE}" get pods -o wide || true
+                kctl -n "${K8S_NAMESPACE}" describe job airflow-init || true
+                while IFS= read -r pod_name; do
+                  [ -n "${pod_name}" ] || continue
+                  kctl -n "${K8S_NAMESPACE}" describe "${pod_name}" || true
+                  kctl -n "${K8S_NAMESPACE}" logs "${pod_name}" --tail=200 || true
+                done <<EOF
+              $(kctl -n "${K8S_NAMESPACE}" get pods -l job-name=airflow-init -o name || true)
+              EOF
+                exit 1
+              fi
             fi
 
             kctl apply -f k8s/airflow/airflow-webserver-service.yaml
