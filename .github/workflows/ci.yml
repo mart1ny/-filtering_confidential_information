@@ -290,6 +290,7 @@ jobs:
             mkdir -p "${DEPLOY_BASE}"
             cd "${DEPLOY_BASE}"
             mkdir -p bert_classifier/model
+            mkdir -p "${DEPLOY_BASE}/airflow-data/postgres" "${DEPLOY_BASE}/airflow-data/logs"
 
             if [ ! -f "${KUBECONFIG_PATH}" ]; then
               echo "Missing ${KUBECONFIG_PATH}. Configure kubeconfig for ${USER} before running CI/CD."
@@ -448,6 +449,8 @@ jobs:
               exit 1
             fi
 
+            echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USERNAME}" --password-stdin
+
             kctl apply -f k8s/namespace.yaml
             kctl -n "${K8S_NAMESPACE}" create secret docker-registry ghcr-registry \
               --docker-server=ghcr.io \
@@ -504,12 +507,96 @@ jobs:
               exit 1
             fi
 
-            mkdir -p dags
-            docker compose -p "${AIRFLOW_PROJECT}" -f docker-compose.airflow.yml down --remove-orphans || true
-            if ! docker compose -p "${AIRFLOW_PROJECT}" -f docker-compose.airflow.yml up -d --remove-orphans; then
-              echo "Airflow compose startup failed"
-              docker compose -p "${AIRFLOW_PROJECT}" -f docker-compose.airflow.yml ps || true
-              docker compose -p "${AIRFLOW_PROJECT}" -f docker-compose.airflow.yml logs --tail=200 airflow-init airflow-webserver airflow-scheduler postgres || true
+            sed "s|__DEPLOY_BASE__|${DEPLOY_BASE}|g" k8s/airflow/postgres-deployment.yaml.template > k8s/airflow/postgres-deployment.rendered.yaml
+            sed "s|__DEPLOY_BASE__|${DEPLOY_BASE}|g" k8s/airflow/airflow-init-job.yaml.template > k8s/airflow/airflow-init-job.rendered.yaml
+            sed "s|__DEPLOY_BASE__|${DEPLOY_BASE}|g" k8s/airflow/airflow-webserver-deployment.yaml.template > k8s/airflow/airflow-webserver-deployment.rendered.yaml
+            sed "s|__DEPLOY_BASE__|${DEPLOY_BASE}|g" k8s/airflow/airflow-scheduler-deployment.yaml.template > k8s/airflow/airflow-scheduler-deployment.rendered.yaml
+
+            cat > k8s/airflow/airflow-secrets.generated.yaml <<EOF
+            apiVersion: v1
+            kind: Secret
+            metadata:
+              name: airflow-secrets
+              namespace: ${K8S_NAMESPACE}
+            type: Opaque
+            stringData:
+              AIRFLOW__CORE__EXECUTOR: "LocalExecutor"
+              AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: "postgresql+psycopg2://airflow:airflow@airflow-postgres/airflow"
+              AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+              AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "true"
+              AIRFLOW__WEBSERVER__SECRET_KEY: "${{ secrets.SECRET_KEY }}"
+              APP_IMAGE: "ghcr.io/${{ github.repository_owner }}/confidential-filter-service:latest"
+              DOCKER_URL: "unix://var/run/docker.sock"
+              DOCKER_NETWORK_MODE: "bridge"
+              DRIFT_MOUNT_TYPE: "${DRIFT_MOUNT_TYPE_VALUE}"
+              DRIFT_MOUNT_SOURCE: "${DRIFT_MOUNT_SOURCE_VALUE}"
+              DRIFT_MOUNT_TARGET: "${DRIFT_MOUNT_TARGET_VALUE}"
+              DRIFT_RESULTS_S3_URI_PREFIX: "${DRIFT_RESULTS_S3_URI_PREFIX_VALUE}"
+              TRAIN_DATASET_MOUNT_TYPE: "${TRAIN_DATASET_MOUNT_TYPE_VALUE}"
+              TRAIN_DATASET_MOUNT_SOURCE: "${TRAIN_DATASET_MOUNT_SOURCE_VALUE}"
+              TRAIN_DATASET_MOUNT_TARGET: "${TRAIN_DATASET_MOUNT_TARGET_VALUE}"
+              TRAIN_DATASET_FILE: "${TRAIN_DATASET_FILE_VALUE}"
+              TRAIN_DATASET_URI: "${TRAIN_DATASET_URI_VALUE}"
+              REVIEW_MOUNT_TYPE: "${REVIEW_MOUNT_TYPE_VALUE}"
+              REVIEW_MOUNT_SOURCE: "${REVIEW_MOUNT_SOURCE_VALUE}"
+              REVIEW_MOUNT_TARGET: "${REVIEW_MOUNT_TARGET_VALUE}"
+              REVIEW_STORAGE_DIR: "${REVIEW_MOUNT_TARGET_VALUE}"
+              REVIEW_DATABASE_URL: "${REVIEW_DATABASE_URL_VALUE}"
+              REVIEW_DB_HOST: "${REVIEW_DB_HOST_VALUE}"
+              REVIEW_DB_PORT: "${REVIEW_DB_PORT_VALUE}"
+              REVIEW_DB_NAME: "${REVIEW_DB_NAME_VALUE}"
+              REVIEW_DB_USER: "${REVIEW_DB_USER_VALUE}"
+              REVIEW_DB_PASSWORD: "${REVIEW_DB_PASSWORD_VALUE}"
+              TRAIN_ARTIFACTS_MOUNT_TYPE: "${TRAIN_ARTIFACTS_MOUNT_TYPE_VALUE}"
+              TRAIN_ARTIFACTS_MOUNT_SOURCE: "${TRAIN_ARTIFACTS_MOUNT_SOURCE_VALUE}"
+              TRAIN_ARTIFACTS_MOUNT_TARGET: "${TRAIN_ARTIFACTS_MOUNT_TARGET_VALUE}"
+              TRAIN_RESULTS_S3_URI_PREFIX: "${TRAIN_RESULTS_S3_URI_PREFIX_VALUE}"
+              AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID_VALUE}"
+              AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY_VALUE}"
+              AWS_SESSION_TOKEN: "${AWS_SESSION_TOKEN_VALUE}"
+              AWS_REGION: "${AWS_REGION_VALUE}"
+              AWS_DEFAULT_REGION: "${AWS_DEFAULT_REGION_VALUE}"
+              S3_ENDPOINT_URL: "${S3_ENDPOINT_URL_VALUE}"
+              AIRFLOW_WEB_USER: "${AIRFLOW_WEB_USER_VALUE}"
+              AIRFLOW_WEB_PASSWORD: "${AIRFLOW_WEB_PASSWORD_VALUE}"
+            EOF
+
+            kctl apply -f k8s/airflow/postgres-service.yaml
+            kctl apply -f k8s/airflow/postgres-deployment.rendered.yaml
+            if ! kctl -n "${K8S_NAMESPACE}" rollout status deployment/airflow-postgres --timeout=180s; then
+              echo "Airflow postgres rollout failed"
+              kctl -n "${K8S_NAMESPACE}" get pods -o wide || true
+              kctl -n "${K8S_NAMESPACE}" describe deployment airflow-postgres || true
+              kctl -n "${K8S_NAMESPACE}" describe pods -l app.kubernetes.io/name=airflow-postgres || true
+              exit 1
+            fi
+
+            kctl apply -f k8s/airflow/airflow-secrets.generated.yaml
+            kctl -n "${K8S_NAMESPACE}" delete job airflow-init --ignore-not-found=true
+            kctl apply -f k8s/airflow/airflow-init-job.rendered.yaml
+            if ! kctl -n "${K8S_NAMESPACE}" wait --for=condition=complete --timeout=180s job/airflow-init; then
+              echo "Airflow init job failed"
+              kctl -n "${K8S_NAMESPACE}" get pods -o wide || true
+              kctl -n "${K8S_NAMESPACE}" logs job/airflow-init --tail=200 || true
+              kctl -n "${K8S_NAMESPACE}" describe job airflow-init || true
+              exit 1
+            fi
+
+            kctl apply -f k8s/airflow/airflow-webserver-service.yaml
+            kctl apply -f k8s/airflow/airflow-webserver-deployment.rendered.yaml
+            kctl apply -f k8s/airflow/airflow-scheduler-deployment.rendered.yaml
+            if ! kctl -n "${K8S_NAMESPACE}" rollout status deployment/airflow-webserver --timeout=180s; then
+              echo "Airflow webserver rollout failed"
+              kctl -n "${K8S_NAMESPACE}" get pods -o wide || true
+              kctl -n "${K8S_NAMESPACE}" describe deployment airflow-webserver || true
+              kctl -n "${K8S_NAMESPACE}" logs deployment/airflow-webserver --tail=200 || true
+              exit 1
+            fi
+            if ! kctl -n "${K8S_NAMESPACE}" rollout status deployment/airflow-scheduler --timeout=180s; then
+              echo "Airflow scheduler rollout failed"
+              kctl -n "${K8S_NAMESPACE}" get pods -o wide || true
+              kctl -n "${K8S_NAMESPACE}" describe deployment airflow-scheduler || true
+              kctl -n "${K8S_NAMESPACE}" logs deployment/airflow-scheduler --tail=200 || true
               exit 1
             fi
 
@@ -544,15 +631,16 @@ jobs:
             done
 
             for attempt in 1 2 3 4 5 6; do
-              if curl -fsS "http://localhost:8080/health" >/dev/null; then
+              if curl -fsS "http://localhost:30082/health" >/dev/null; then
                 break
               fi
               echo "airflow healthcheck failed (attempt ${attempt}/6), retrying..."
               sleep 10
               if [ "${attempt}" -eq 6 ]; then
                 echo "Airflow webserver is not healthy"
-                docker compose -p "${AIRFLOW_PROJECT}" -f docker-compose.airflow.yml ps
-                docker compose -p "${AIRFLOW_PROJECT}" -f docker-compose.airflow.yml logs --tail=200 airflow-webserver airflow-scheduler airflow-init || true
+                kctl -n "${K8S_NAMESPACE}" get pods -o wide
+                kctl -n "${K8S_NAMESPACE}" logs deployment/airflow-webserver --tail=200 || true
+                kctl -n "${K8S_NAMESPACE}" logs deployment/airflow-scheduler --tail=200 || true
                 exit 1
               fi
             done

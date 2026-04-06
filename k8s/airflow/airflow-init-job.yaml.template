@@ -1,0 +1,69 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: airflow-init
+  namespace: confidential-filter
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: airflow-init
+        app.kubernetes.io/part-of: confidential-filter
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: airflow-init
+          image: apache/airflow:2.10.5
+          envFrom:
+            - secretRef:
+                name: airflow-secrets
+          command:
+            - bash
+            - -lc
+            - |
+              set -euo pipefail
+              airflow db migrate
+              python <<'PY'
+              import os
+              from airflow.www.app import create_app
+              from werkzeug.security import generate_password_hash
+
+              app = create_app()
+              username = os.environ.get("AIRFLOW_WEB_USER", "airflow")
+              password = os.environ.get("AIRFLOW_WEB_PASSWORD", "airflow")
+
+              with app.app_context():
+                  appbuilder = app.appbuilder
+                  sm = appbuilder.sm
+                  session = appbuilder.get_session
+                  role = sm.find_role("Admin")
+                  if role is None:
+                      raise RuntimeError("Admin role not found")
+                  user = sm.find_user(username=username)
+                  if user is None:
+                      user = sm.user_model()
+                      session.add(user)
+                  user.username = username
+                  user.first_name = "Air"
+                  user.last_name = "Flow"
+                  user.email = "airflow@example.com"
+                  user.active = True
+                  user.password = generate_password_hash(password)
+                  user.roles = [role]
+                  session.commit()
+              PY
+          volumeMounts:
+            - name: dags
+              mountPath: /opt/airflow/dags
+            - name: logs
+              mountPath: /opt/airflow/logs
+      volumes:
+        - name: dags
+          hostPath:
+            path: __DEPLOY_BASE__/dags
+            type: DirectoryOrCreate
+        - name: logs
+          hostPath:
+            path: __DEPLOY_BASE__/airflow-data/logs
+            type: DirectoryOrCreate

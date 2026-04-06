@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: airflow-webserver
+  namespace: confidential-filter
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: airflow-webserver
+      app.kubernetes.io/part-of: confidential-filter
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: airflow-webserver
+        app.kubernetes.io/part-of: confidential-filter
+    spec:
+      containers:
+        - name: airflow-webserver
+          image: apache/airflow:2.10.5
+          envFrom:
+            - secretRef:
+                name: airflow-secrets
+          command: ["airflow", "webserver"]
+          ports:
+            - containerPort: 8080
+              name: http
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 30
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 60
+          resources:
+            requests:
+              cpu: 150m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 768Mi
+          volumeMounts:
+            - name: dags
+              mountPath: /opt/airflow/dags
+            - name: logs
+              mountPath: /opt/airflow/logs
+      volumes:
+        - name: dags
+          hostPath:
+            path: __DEPLOY_BASE__/dags
+            type: DirectoryOrCreate
+        - name: logs
+          hostPath:
+            path: __DEPLOY_BASE__/airflow-data/logs
+            type: DirectoryOrCreate
