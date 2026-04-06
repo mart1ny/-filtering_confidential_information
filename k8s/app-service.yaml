@@ -4,6 +4,7 @@ metadata:
   name: app
   namespace: confidential-filter
 spec:
+  type: NodePort
   selector:
     app.kubernetes.io/name: app
     app.kubernetes.io/part-of: confidential-filter
@@ -11,3 +12,4 @@ spec:
     - name: http
       port: 8000
       targetPort: http
+      nodePort: 30080
