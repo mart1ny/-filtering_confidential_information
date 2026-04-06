@@ -227,7 +227,7 @@ jobs:
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
         run: |
           ssh -i ~/.ssh/deploy_key "${DEPLOY_USER}@${DEPLOY_HOST}" "mkdir -p '${DEPLOY_PATH}/dags' '${DEPLOY_PATH}/dataset' '${DEPLOY_PATH}/k8s'"
-          rsync -az --delete -e "ssh -i ~/.ssh/deploy_key" dags/ "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/dags/"
+          rsync -az --delete --exclude='__pycache__/' --exclude='*.pyc' -e "ssh -i ~/.ssh/deploy_key" dags/ "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/dags/"
           rsync -az --delete -e "ssh -i ~/.ssh/deploy_key" k8s/ "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/k8s/"
           rsync -az -e "ssh -i ~/.ssh/deploy_key" docker-compose.airflow.yml "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/docker-compose.airflow.yml"
           if [ -f "dataset/ds.parquet" ]; then
