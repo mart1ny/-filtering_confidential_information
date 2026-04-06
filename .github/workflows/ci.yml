@@ -299,8 +299,8 @@ jobs:
             # Stop legacy compose stacks from earlier deploys before starting the new named projects.
             docker compose down --remove-orphans || true
             docker compose -p "${APP_PROJECT}" down --remove-orphans || true
-            docker compose -f docker-compose.airflow.yml down -v --remove-orphans || true
-            docker compose -p "${AIRFLOW_PROJECT}" -f docker-compose.airflow.yml down -v --remove-orphans || true
+            docker compose -f docker-compose.airflow.yml down --remove-orphans || true
+            docker compose -p "${AIRFLOW_PROJECT}" -f docker-compose.airflow.yml down --remove-orphans || true
 
             AIRFLOW_WEB_USER_VALUE="${AIRFLOW_WEB_USER:-airflow}"
             AIRFLOW_WEB_PASSWORD_VALUE="${AIRFLOW_WEB_PASSWORD:-airflow}"
@@ -505,7 +505,7 @@ jobs:
             fi
 
             mkdir -p dags
-            docker compose -p "${AIRFLOW_PROJECT}" -f docker-compose.airflow.yml down -v --remove-orphans || true
+            docker compose -p "${AIRFLOW_PROJECT}" -f docker-compose.airflow.yml down --remove-orphans || true
             if ! docker compose -p "${AIRFLOW_PROJECT}" -f docker-compose.airflow.yml up -d --remove-orphans; then
               echo "Airflow compose startup failed"
               docker compose -p "${AIRFLOW_PROJECT}" -f docker-compose.airflow.yml ps || true
