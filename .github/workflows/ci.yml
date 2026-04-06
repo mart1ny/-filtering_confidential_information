@@ -280,6 +280,7 @@ jobs:
           script: |
             set -euo pipefail
             DEPLOY_BASE="${{ secrets.DEPLOY_PATH }}"
+            APP_PROJECT="confidential-app"
             AIRFLOW_PROJECT="confidential-airflow"
             K8S_NAMESPACE="confidential-filter"
             KUBECONFIG_PATH="${HOME}/.kube/config"
@@ -297,6 +298,7 @@ jobs:
 
             # Stop legacy compose stacks from earlier deploys before starting the new named projects.
             docker compose down --remove-orphans || true
+            docker compose -p "${APP_PROJECT}" down --remove-orphans || true
             docker compose -f docker-compose.airflow.yml down -v --remove-orphans || true
             docker compose -p "${AIRFLOW_PROJECT}" -f docker-compose.airflow.yml down -v --remove-orphans || true
 
