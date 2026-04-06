@@ -158,7 +158,10 @@ def build_app() -> FastAPI:
 
 def _configure_access_log_filter() -> None:
     access_logger = logging.getLogger("uvicorn.access")
-    if any(isinstance(log_filter, _SuppressHealthcheckAccessLogFilter) for log_filter in access_logger.filters):
+    if any(
+        isinstance(log_filter, _SuppressHealthcheckAccessLogFilter)
+        for log_filter in access_logger.filters
+    ):
         return
     access_logger.addFilter(_SuppressHealthcheckAccessLogFilter())
 
