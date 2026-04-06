@@ -606,13 +606,10 @@ jobs:
                 echo "Airflow init job failed"
                 kctl -n "${K8S_NAMESPACE}" get pods -o wide || true
                 kctl -n "${K8S_NAMESPACE}" describe job airflow-init || true
-                while IFS= read -r pod_name; do
-                  [ -n "${pod_name}" ] || continue
+                for pod_name in $(kctl -n "${K8S_NAMESPACE}" get pods -l job-name=airflow-init -o name || true); do
                   kctl -n "${K8S_NAMESPACE}" describe "${pod_name}" || true
                   kctl -n "${K8S_NAMESPACE}" logs "${pod_name}" --tail=200 || true
-                done <<EOF
-              $(kctl -n "${K8S_NAMESPACE}" get pods -l job-name=airflow-init -o name || true)
-              EOF
+                done
                 exit 1
               fi
             fi
