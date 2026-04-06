@@ -1,3 +1,4 @@
+import logging
 from functools import lru_cache
 from pathlib import Path
 from time import perf_counter
@@ -24,6 +25,11 @@ from app.infrastructure.monitoring.metrics import (
     metrics_response,
 )
 from app.review.store import ReviewQueueStore
+
+
+class _SuppressHealthcheckAccessLogFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        return "/health HTTP/" not in record.getMessage()
 
 
 @lru_cache(maxsize=1)
@@ -144,9 +150,17 @@ def export_review_dataset(
 
 
 def build_app() -> FastAPI:
+    _configure_access_log_filter()
     app = FastAPI(title=settings.app_name, version="0.1.0")
     app.include_router(router)
     return app
+
+
+def _configure_access_log_filter() -> None:
+    access_logger = logging.getLogger("uvicorn.access")
+    if any(isinstance(log_filter, _SuppressHealthcheckAccessLogFilter) for log_filter in access_logger.filters):
+        return
+    access_logger.addFilter(_SuppressHealthcheckAccessLogFilter())
 
 
 def _to_review_case_response(case: ReviewCase) -> ReviewCaseResponse:
