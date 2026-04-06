@@ -16,6 +16,8 @@ spec:
         app.kubernetes.io/name: app
         app.kubernetes.io/part-of: confidential-filter
     spec:
+      imagePullSecrets:
+        - name: ghcr-registry
       containers:
         - name: app
           image: ghcr.io/mart1ny/confidential-filter-service:latest

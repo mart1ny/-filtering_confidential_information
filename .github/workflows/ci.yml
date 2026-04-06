@@ -226,8 +226,9 @@ jobs:
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
         run: |
-          ssh -i ~/.ssh/deploy_key "${DEPLOY_USER}@${DEPLOY_HOST}" "mkdir -p '${DEPLOY_PATH}/dags' '${DEPLOY_PATH}/dataset'"
+          ssh -i ~/.ssh/deploy_key "${DEPLOY_USER}@${DEPLOY_HOST}" "mkdir -p '${DEPLOY_PATH}/dags' '${DEPLOY_PATH}/dataset' '${DEPLOY_PATH}/k8s'"
           rsync -az --delete -e "ssh -i ~/.ssh/deploy_key" dags/ "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/dags/"
+          rsync -az --delete -e "ssh -i ~/.ssh/deploy_key" k8s/ "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/k8s/"
           rsync -az -e "ssh -i ~/.ssh/deploy_key" docker-compose.airflow.yml "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/docker-compose.airflow.yml"
           if [ -f "dataset/ds.parquet" ]; then
             rsync -az -e "ssh -i ~/.ssh/deploy_key" dataset/ds.parquet "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/dataset/ds.parquet"
@@ -269,24 +270,34 @@ jobs:
           AWS_REGION: ${{ secrets.AWS_REGION }}
           AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
           S3_ENDPOINT_URL: ${{ secrets.S3_ENDPOINT_URL }}
+          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          envs: AIRFLOW_WEB_USER,AIRFLOW_WEB_PASSWORD,DRIFT_MOUNT_TYPE,DRIFT_MOUNT_SOURCE,DRIFT_MOUNT_TARGET,DRIFT_RESULTS_S3_URI_PREFIX,TRAIN_DATASET_MOUNT_TYPE,TRAIN_DATASET_MOUNT_SOURCE,TRAIN_DATASET_MOUNT_TARGET,TRAIN_DATASET_FILE,TRAIN_DATASET_URI,REVIEW_MOUNT_TYPE,REVIEW_MOUNT_SOURCE,REVIEW_MOUNT_TARGET,TRAIN_ARTIFACTS_MOUNT_TYPE,TRAIN_ARTIFACTS_MOUNT_SOURCE,TRAIN_ARTIFACTS_MOUNT_TARGET,TRAIN_RESULTS_S3_URI_PREFIX,MODEL_S3_URI,REVIEW_DATABASE_URL,REVIEW_DB_HOST,REVIEW_DB_PORT,REVIEW_DB_NAME,REVIEW_DB_USER,REVIEW_DB_PASSWORD,AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY,AWS_SESSION_TOKEN,AWS_REGION,AWS_DEFAULT_REGION,S3_ENDPOINT_URL
+          envs: AIRFLOW_WEB_USER,AIRFLOW_WEB_PASSWORD,DRIFT_MOUNT_TYPE,DRIFT_MOUNT_SOURCE,DRIFT_MOUNT_TARGET,DRIFT_RESULTS_S3_URI_PREFIX,TRAIN_DATASET_MOUNT_TYPE,TRAIN_DATASET_MOUNT_SOURCE,TRAIN_DATASET_MOUNT_TARGET,TRAIN_DATASET_FILE,TRAIN_DATASET_URI,REVIEW_MOUNT_TYPE,REVIEW_MOUNT_SOURCE,REVIEW_MOUNT_TARGET,TRAIN_ARTIFACTS_MOUNT_TYPE,TRAIN_ARTIFACTS_MOUNT_SOURCE,TRAIN_ARTIFACTS_MOUNT_TARGET,TRAIN_RESULTS_S3_URI_PREFIX,MODEL_S3_URI,REVIEW_DATABASE_URL,REVIEW_DB_HOST,REVIEW_DB_PORT,REVIEW_DB_NAME,REVIEW_DB_USER,REVIEW_DB_PASSWORD,AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY,AWS_SESSION_TOKEN,AWS_REGION,AWS_DEFAULT_REGION,S3_ENDPOINT_URL,GHCR_USERNAME,GHCR_TOKEN
           script: |
             set -euo pipefail
             DEPLOY_BASE="${{ secrets.DEPLOY_PATH }}"
-            APP_PROJECT="confidential-app"
             AIRFLOW_PROJECT="confidential-airflow"
+            K8S_NAMESPACE="confidential-filter"
+            KUBECONFIG_PATH="${HOME}/.kube/config"
+            kctl() {
+              /usr/local/bin/k3s kubectl --kubeconfig "${KUBECONFIG_PATH}" "$@"
+            }
             mkdir -p "${DEPLOY_BASE}"
             cd "${DEPLOY_BASE}"
             mkdir -p bert_classifier/model
 
+            if [ ! -f "${KUBECONFIG_PATH}" ]; then
+              echo "Missing ${KUBECONFIG_PATH}. Configure kubeconfig for ${USER} before running CI/CD."
+              exit 1
+            fi
+
             # Stop legacy compose stacks from earlier deploys before starting the new named projects.
             docker compose down --remove-orphans || true
             docker compose -f docker-compose.airflow.yml down -v --remove-orphans || true
-            docker compose -p "${APP_PROJECT}" down --remove-orphans || true
             docker compose -p "${AIRFLOW_PROJECT}" -f docker-compose.airflow.yml down -v --remove-orphans || true
 
             AIRFLOW_WEB_USER_VALUE="${AIRFLOW_WEB_USER:-airflow}"
@@ -354,6 +365,8 @@ jobs:
             print_env_status "AWS_REGION" "${AWS_REGION_VALUE}"
             print_env_status "AWS_DEFAULT_REGION" "${AWS_DEFAULT_REGION_VALUE}"
             print_env_status "S3_ENDPOINT_URL" "${S3_ENDPOINT_URL_VALUE}"
+            print_env_status "GHCR_USERNAME" "${GHCR_USERNAME:-}"
+            print_env_status "GHCR_TOKEN" "${GHCR_TOKEN:-}"
 
             if [[ "${TRAIN_DATASET_URI_VALUE}" == s3://* || "${TRAIN_DATASET_URI_VALUE}" == s3:/* ]]; then
               if [ -z "${AWS_ACCESS_KEY_ID_VALUE}" ] || [ -z "${AWS_SECRET_ACCESS_KEY_VALUE}" ]; then
@@ -427,42 +440,55 @@ jobs:
             AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION_VALUE}
             S3_ENDPOINT_URL=${S3_ENDPOINT_URL_VALUE}
             EOF
-            cat > docker-compose.yml <<EOF
-            services:
-              app:
-                image: ghcr.io/${{ github.repository_owner }}/confidential-filter-service:latest
-                env_file:
-                  - .env
-                ports:
-                  - "${{ secrets.APP_PORT }}:8000"
-                volumes:
-                  - ./bert_classifier/model:/srv/app/bert_classifier/model:ro
-                  - ${REVIEW_MOUNT_SOURCE_VALUE}:${REVIEW_MOUNT_TARGET_VALUE}
-                restart: unless-stopped
-              frontend:
-                image: ghcr.io/${{ github.repository_owner }}/confidential-filter-frontend:latest
-                depends_on:
-                  - app
-                ports:
-                  - "${{ secrets.FRONTEND_PORT }}:80"
-                restart: unless-stopped
+
+            if [ -z "${GHCR_USERNAME:-}" ] || [ -z "${GHCR_TOKEN:-}" ]; then
+              echo "GHCR credentials are required for Kubernetes image pulls."
+              exit 1
+            fi
+
+            kctl apply -f k8s/namespace.yaml
+            kctl -n "${K8S_NAMESPACE}" create secret docker-registry ghcr-registry \
+              --docker-server=ghcr.io \
+              --docker-username="${GHCR_USERNAME}" \
+              --docker-password="${GHCR_TOKEN}" \
+              --dry-run=client -o yaml | kctl apply -f -
+
+            cat > k8s/secret.generated.yaml <<EOF
+            apiVersion: v1
+            kind: Secret
+            metadata:
+              name: confidential-filter-secrets
+              namespace: ${K8S_NAMESPACE}
+            type: Opaque
+            stringData:
+              SECRET_KEY: "${{ secrets.SECRET_KEY }}"
+              MODEL_S3_URI: "${MODEL_S3_URI_VALUE}"
+              AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID_VALUE}"
+              AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY_VALUE}"
+              AWS_SESSION_TOKEN: "${AWS_SESSION_TOKEN_VALUE}"
+              AWS_REGION: "${AWS_REGION_VALUE}"
+              AWS_DEFAULT_REGION: "${AWS_DEFAULT_REGION_VALUE}"
+              S3_ENDPOINT_URL: "${S3_ENDPOINT_URL_VALUE}"
+              REVIEW_DATABASE_URL: "${REVIEW_DATABASE_URL_VALUE}"
+              REVIEW_DB_HOST: "${REVIEW_DB_HOST_VALUE}"
+              REVIEW_DB_PORT: "${REVIEW_DB_PORT_VALUE}"
+              REVIEW_DB_NAME: "${REVIEW_DB_NAME_VALUE}"
+              REVIEW_DB_USER: "${REVIEW_DB_USER_VALUE}"
+              REVIEW_DB_PASSWORD: "${REVIEW_DB_PASSWORD_VALUE}"
+              TELEGRAM_BOT_TOKEN: "${{ secrets.TELEGRAM_BOT_TOKEN }}"
+              TELEGRAM_CHAT_ID: "${{ secrets.TELEGRAM_CHAT_ID }}"
+              SMTP_HOST: "${{ secrets.SMTP_HOST }}"
+              SMTP_PORT: "${{ secrets.SMTP_PORT }}"
+              SMTP_USERNAME: "${{ secrets.SMTP_USERNAME }}"
+              SMTP_PASSWORD: "${{ secrets.SMTP_PASSWORD }}"
             EOF
-            echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u "${{ secrets.GHCR_USERNAME }}" --password-stdin
-            APP_IMAGE_FULL="ghcr.io/${{ github.repository_owner }}/confidential-filter-service:latest"
-            FRONTEND_IMAGE_FULL="ghcr.io/${{ github.repository_owner }}/confidential-filter-frontend:latest"
-            for attempt in 1 2 3; do
-              if docker compose -p "${APP_PROJECT}" pull app frontend; then
-                break
-              fi
-              echo "docker compose pull failed (attempt ${attempt}/3), retrying..."
-              docker image rm -f "${APP_IMAGE_FULL}" "${FRONTEND_IMAGE_FULL}" || true
-              sleep 8
-              if [ "${attempt}" -eq 3 ]; then
-                echo "docker pull failed after 3 attempts"
-                exit 1
-              fi
-            done
-            docker compose -p "${APP_PROJECT}" up -d --remove-orphans
+
+            kctl apply -f k8s/secret.generated.yaml
+            kctl apply -k k8s/
+            kctl -n "${K8S_NAMESPACE}" rollout restart deployment/app deployment/frontend
+            kctl -n "${K8S_NAMESPACE}" rollout status deployment/app --timeout=180s
+            kctl -n "${K8S_NAMESPACE}" rollout status deployment/frontend --timeout=180s
+
             mkdir -p dags
             docker compose -p "${AIRFLOW_PROJECT}" -f docker-compose.airflow.yml down -v --remove-orphans || true
             if ! docker compose -p "${AIRFLOW_PROJECT}" -f docker-compose.airflow.yml up -d --remove-orphans; then
@@ -472,33 +498,32 @@ jobs:
               exit 1
             fi
 
-            APP_PORT_VALUE="${{ secrets.APP_PORT }}"
-            FRONTEND_PORT_VALUE="${{ secrets.FRONTEND_PORT }}"
-
             for attempt in 1 2 3 4 5; do
-              if curl -fsS "http://localhost:${APP_PORT_VALUE}/health" >/dev/null; then
+              if curl -fsS "http://localhost:30080/health" >/dev/null; then
                 break
               fi
               echo "backend healthcheck failed (attempt ${attempt}/5), retrying..."
               sleep 5
               if [ "${attempt}" -eq 5 ]; then
                 echo "Backend service is not healthy"
-                docker compose -p "${APP_PROJECT}" ps
-                docker compose -p "${APP_PROJECT}" logs --tail=200 app frontend || true
+                kctl -n "${K8S_NAMESPACE}" get pods -o wide
+                kctl -n "${K8S_NAMESPACE}" logs deployment/app --tail=200 || true
+                kctl -n "${K8S_NAMESPACE}" logs deployment/frontend --tail=200 || true
                 exit 1
               fi
             done
 
             for attempt in 1 2 3 4 5; do
-              if curl -fsS -I "http://localhost:${FRONTEND_PORT_VALUE}" >/dev/null; then
+              if curl -fsS -I "http://localhost:30081" >/dev/null; then
                 break
               fi
               echo "frontend healthcheck failed (attempt ${attempt}/5), retrying..."
               sleep 5
               if [ "${attempt}" -eq 5 ]; then
                 echo "Frontend service is not healthy"
-                docker compose -p "${APP_PROJECT}" ps
-                docker compose -p "${APP_PROJECT}" logs --tail=200 frontend app || true
+                kctl -n "${K8S_NAMESPACE}" get pods -o wide
+                kctl -n "${K8S_NAMESPACE}" logs deployment/frontend --tail=200 || true
+                kctl -n "${K8S_NAMESPACE}" logs deployment/app --tail=200 || true
                 exit 1
               fi
             done
