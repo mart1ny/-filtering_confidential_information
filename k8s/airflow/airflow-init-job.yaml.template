@@ -27,7 +27,7 @@ spec:
             - |
               set -euo pipefail
               /home/airflow/.local/bin/airflow db migrate
-              python <<'PY'
+              /home/airflow/.local/bin/python <<'PY'
               import os
               from airflow.www.app import create_app
               from werkzeug.security import generate_password_hash
