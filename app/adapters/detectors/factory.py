@@ -6,7 +6,6 @@ from app.adapters.detectors.rule_detector import DetectorThresholds, RuleBasedDe
 from app.domain.interfaces import TextDetector
 from app.infrastructure.config.settings import Settings
 
-
 logger = logging.getLogger(__name__)
 
 
