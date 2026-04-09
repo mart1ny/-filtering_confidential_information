@@ -4,6 +4,7 @@ from datetime import datetime
 from airflow import DAG
 from airflow.exceptions import AirflowNotFoundException
 from airflow.hooks.base import BaseHook
+from airflow.models.param import Param
 from airflow.providers.docker.operators.docker import DockerOperator
 from docker.types import Mount
 
@@ -22,6 +23,13 @@ with DAG(
     schedule="@daily",
     catchup=False,
     max_active_runs=1,
+    params={
+        "end_date": Param(
+            "",
+            type="string",
+            description="Optional historical date in YYYY-MM-DD format. If empty, the DAG uses ds.",
+        )
+    },
     tags=["ml", "drift", "idempotent"],
 ) as dag:
     app_image = os.environ.get("APP_IMAGE", "confidential-filter-service:local")
@@ -65,7 +73,7 @@ with DAG(
         command=(
             "python -m app.batch.runner "
             "--action prepare "
-            "--run-date {{ ds }} "
+            "--run-date {{ params.end_date or ds }} "
             f"--output-dir {drift_mount_target}"
         ),
         docker_url=docker_url,
@@ -84,7 +92,7 @@ with DAG(
         command=(
             "python -m app.batch.runner "
             "--action compute "
-            "--run-date {{ ds }} "
+            "--run-date {{ params.end_date or ds }} "
             f"--output-dir {drift_mount_target}"
         ),
         docker_url=docker_url,
@@ -103,7 +111,7 @@ with DAG(
         command=(
             "python -m app.batch.runner "
             "--action publish "
-            "--run-date {{ ds }} "
+            "--run-date {{ params.end_date or ds }} "
             f"--output-dir {drift_mount_target}"
         ),
         docker_url=docker_url,
