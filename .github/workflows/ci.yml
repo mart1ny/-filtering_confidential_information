@@ -361,14 +361,7 @@ jobs:
             S3_ENDPOINT_URL_VALUE="${S3_ENDPOINT_URL:-}"
             AIRFLOW_FERNET_KEY_VALUE="${{ secrets.AIRFLOW_FERNET_KEY }}"
             if [ -z "${AIRFLOW_FERNET_KEY_VALUE}" ]; then
-              AIRFLOW_FERNET_KEY_VALUE="$(python3 - <<'PY'
-import base64
-import hashlib
-
-secret_key = """${{ secrets.SECRET_KEY }}"""
-print(base64.urlsafe_b64encode(hashlib.sha256(secret_key.encode("utf-8")).digest()).decode("ascii"))
-PY
-)"
+              AIRFLOW_FERNET_KEY_VALUE="$(python3 -c 'import base64, hashlib; secret_key = """${{ secrets.SECRET_KEY }}"""; print(base64.urlsafe_b64encode(hashlib.sha256(secret_key.encode("utf-8")).digest()).decode("ascii"))')"
             fi
 
             print_env_status() {

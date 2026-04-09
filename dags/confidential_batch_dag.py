@@ -2,6 +2,8 @@ import os
 from datetime import datetime
 
 from airflow import DAG
+from airflow.exceptions import AirflowNotFoundException
+from airflow.hooks.base import BaseHook
 from airflow.providers.docker.operators.docker import DockerOperator
 from docker.types import Mount
 
@@ -30,7 +32,22 @@ with DAG(
     drift_mount_source = os.environ.get("DRIFT_MOUNT_SOURCE", "confidential_drift_data")
     drift_mount_target = os.environ.get("DRIFT_MOUNT_TARGET", "/var/lib/confidential-drift")
     drift_mount_type = _normalize_mount_type(drift_mount_source, drift_mount_type)
-    runtime_env = build_runtime_env("batch", ("DRIFT_RESULTS_S3_URI_PREFIX",))
+    try:
+        review_db_connection = BaseHook.get_connection("review_db")
+    except AirflowNotFoundException:
+        review_db_connection = None
+
+    try:
+        s3_connection = BaseHook.get_connection("regru_s3")
+    except AirflowNotFoundException:
+        s3_connection = None
+
+    runtime_env = build_runtime_env(
+        "batch",
+        ("DRIFT_RESULTS_S3_URI_PREFIX",),
+        review_db_connection=review_db_connection,
+        s3_connection=s3_connection,
+    )
     shared_mounts = [
         Mount(
             source=drift_mount_source,

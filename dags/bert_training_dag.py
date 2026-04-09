@@ -2,6 +2,8 @@ import os
 from datetime import datetime
 
 from airflow import DAG
+from airflow.exceptions import AirflowNotFoundException
+from airflow.hooks.base import BaseHook
 from airflow.providers.docker.operators.docker import DockerOperator
 from docker.types import Mount
 
@@ -71,12 +73,24 @@ with DAG(
                 read_only=True,
             ),
         )
+    try:
+        review_db_connection = BaseHook.get_connection("review_db")
+    except AirflowNotFoundException:
+        review_db_connection = None
+
+    try:
+        s3_connection = BaseHook.get_connection("regru_s3")
+    except AirflowNotFoundException:
+        s3_connection = None
+
     training_env = build_runtime_env(
         "training",
         (
             "TRAIN_RESULTS_S3_URI_PREFIX",
             "REVIEW_STORAGE_DIR",
         ),
+        review_db_connection=review_db_connection,
+        s3_connection=s3_connection,
     )
     training_env.setdefault("REVIEW_STORAGE_DIR", review_mount_target)
 

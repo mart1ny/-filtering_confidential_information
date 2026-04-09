@@ -3,24 +3,23 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from airflow.exceptions import AirflowNotFoundException
-from airflow.hooks.base import BaseHook
 from airflow.models.connection import Connection
 
-REVIEW_DB_CONN_ID = "review_db"
-S3_CONN_ID = "regru_s3"
 
-
-def build_runtime_env(app_env: str, extra_env_keys: tuple[str, ...]) -> dict[str, str]:
+def build_runtime_env(
+    app_env: str,
+    extra_env_keys: tuple[str, ...],
+    review_db_connection: Connection | None = None,
+    s3_connection: Connection | None = None,
+) -> dict[str, str]:
     runtime_env = {"APP_ENV": app_env}
-    runtime_env.update(_build_review_db_env())
-    runtime_env.update(_build_s3_env())
+    runtime_env.update(_build_review_db_env(review_db_connection))
+    runtime_env.update(_build_s3_env(s3_connection))
     runtime_env.update(_read_env_values(extra_env_keys))
     return runtime_env
 
 
-def _build_review_db_env() -> dict[str, str]:
-    connection = _get_connection(REVIEW_DB_CONN_ID)
+def _build_review_db_env(connection: Connection | None) -> dict[str, str]:
     if connection is None:
         return _read_env_values(
             (
@@ -47,8 +46,7 @@ def _build_review_db_env() -> dict[str, str]:
     return runtime_env
 
 
-def _build_s3_env() -> dict[str, str]:
-    connection = _get_connection(S3_CONN_ID)
+def _build_s3_env(connection: Connection | None) -> dict[str, str]:
     if connection is None:
         return _read_env_values(
             (
@@ -87,13 +85,6 @@ def _build_s3_env() -> dict[str, str]:
     if endpoint_url:
         runtime_env["S3_ENDPOINT_URL"] = endpoint_url
     return runtime_env
-
-
-def _get_connection(conn_id: str) -> Connection | None:
-    try:
-        return BaseHook.get_connection(conn_id)
-    except AirflowNotFoundException:
-        return None
 
 
 def _read_env_values(keys: tuple[str, ...]) -> dict[str, str]:
