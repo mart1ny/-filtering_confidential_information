@@ -359,6 +359,17 @@ jobs:
             AWS_REGION_VALUE="${AWS_REGION:-ru-1}"
             AWS_DEFAULT_REGION_VALUE="${AWS_DEFAULT_REGION:-${AWS_REGION_VALUE}}"
             S3_ENDPOINT_URL_VALUE="${S3_ENDPOINT_URL:-}"
+            AIRFLOW_FERNET_KEY_VALUE="${{ secrets.AIRFLOW_FERNET_KEY }}"
+            if [ -z "${AIRFLOW_FERNET_KEY_VALUE}" ]; then
+              AIRFLOW_FERNET_KEY_VALUE="$(python3 - <<'PY'
+import base64
+import hashlib
+
+secret_key = """${{ secrets.SECRET_KEY }}"""
+print(base64.urlsafe_b64encode(hashlib.sha256(secret_key.encode("utf-8")).digest()).decode("ascii"))
+PY
+)"
+            fi
 
             print_env_status() {
               local name="$1"
@@ -393,6 +404,7 @@ jobs:
             print_env_status "AWS_REGION" "${AWS_REGION_VALUE}"
             print_env_status "AWS_DEFAULT_REGION" "${AWS_DEFAULT_REGION_VALUE}"
             print_env_status "S3_ENDPOINT_URL" "${S3_ENDPOINT_URL_VALUE}"
+            print_env_status "AIRFLOW_FERNET_KEY" "${AIRFLOW_FERNET_KEY_VALUE}"
             print_env_status "GHCR_USERNAME" "${GHCR_USERNAME:-}"
             print_env_status "GHCR_TOKEN" "${GHCR_TOKEN:-}"
 
@@ -548,6 +560,7 @@ jobs:
               AIRFLOW__CORE__EXECUTOR: "LocalExecutor"
               AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: "postgresql+psycopg2://airflow:airflow@airflow-postgres/airflow"
               AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+              AIRFLOW__CORE__FERNET_KEY: "${AIRFLOW_FERNET_KEY_VALUE}"
               AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "true"
               AIRFLOW__WEBSERVER__SECRET_KEY: "${{ secrets.SECRET_KEY }}"
               APP_IMAGE: "ghcr.io/${{ github.repository_owner }}/confidential-filter-service:latest"
