@@ -24,11 +24,21 @@ with DAG(
     catchup=False,
     max_active_runs=1,
     params={
+        "use_today": Param(
+            True,
+            type="boolean",
+            title="Use today's date",
+            description="If enabled, the DAG uses ds and ignores the manual date field.",
+        ),
         "end_date": Param(
             "",
             type="string",
-            description="Optional historical date in YYYY-MM-DD format. If empty, the DAG uses ds.",
-        )
+            format="date",
+            title="Manual date",
+            description=(
+                "Historical date in YYYY-MM-DD format used when " "the toggle is disabled."
+            ),
+        ),
     },
     tags=["ml", "drift", "idempotent"],
 ) as dag:
@@ -56,6 +66,7 @@ with DAG(
         review_db_connection=review_db_connection,
         s3_connection=s3_connection,
     )
+    run_date_template = "{{ ds if params.use_today else (params.end_date or ds) }}"
     shared_mounts = [
         Mount(
             source=drift_mount_source,
@@ -73,7 +84,7 @@ with DAG(
         command=(
             "python -m app.batch.runner "
             "--action prepare "
-            "--run-date {{ params.end_date or ds }} "
+            f"--run-date {run_date_template} "
             f"--output-dir {drift_mount_target}"
         ),
         docker_url=docker_url,
@@ -92,7 +103,7 @@ with DAG(
         command=(
             "python -m app.batch.runner "
             "--action compute "
-            "--run-date {{ params.end_date or ds }} "
+            f"--run-date {run_date_template} "
             f"--output-dir {drift_mount_target}"
         ),
         docker_url=docker_url,
@@ -111,7 +122,7 @@ with DAG(
         command=(
             "python -m app.batch.runner "
             "--action publish "
-            "--run-date {{ params.end_date or ds }} "
+            f"--run-date {run_date_template} "
             f"--output-dir {drift_mount_target}"
         ),
         docker_url=docker_url,
