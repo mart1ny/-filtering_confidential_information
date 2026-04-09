@@ -3,8 +3,9 @@ from datetime import datetime
 
 from airflow import DAG
 from airflow.providers.docker.operators.docker import DockerOperator
-from airflow_runtime_connections import build_runtime_env
 from docker.types import Mount
+
+from airflow_runtime_connections import build_runtime_env
 
 
 def _normalize_mount_type(source: str, configured_type: str) -> str:
