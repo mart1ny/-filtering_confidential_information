@@ -31,8 +31,8 @@ with DAG(
             description="If enabled, the DAG uses ds and ignores the manual date field.",
         ),
         "end_date": Param(
-            "",
-            type="string",
+            None,
+            type=["null", "string"],
             format="date",
             title="Manual date",
             description=(
