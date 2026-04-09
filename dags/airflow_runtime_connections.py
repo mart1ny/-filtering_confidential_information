@@ -34,9 +34,6 @@ def _build_review_db_env() -> dict[str, str]:
         )
 
     runtime_env: dict[str, str] = {}
-    connection_uri = connection.get_uri()
-    if connection_uri:
-        runtime_env["REVIEW_DATABASE_URL"] = connection_uri
     if connection.host:
         runtime_env["REVIEW_DB_HOST"] = connection.host
     if connection.port is not None:

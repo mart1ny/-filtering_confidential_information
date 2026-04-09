@@ -117,7 +117,10 @@ spec:
 
                       for field_name, value in definition.items():
                           setattr(existing, field_name, value)
-                      existing.set_extra(json.dumps(extra, ensure_ascii=True, sort_keys=True))
+                      if extra:
+                          existing.set_extra(json.dumps(extra, ensure_ascii=True, sort_keys=True))
+                      else:
+                          existing.set_extra(None)
                       session.commit()
 
                   print(f"Upserted Airflow connection: {conn_id}")
