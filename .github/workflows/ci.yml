@@ -614,6 +614,19 @@ jobs:
               fi
             fi
 
+            kctl -n "${K8S_NAMESPACE}" delete job airflow-connections-sync --ignore-not-found=true
+            kctl apply -f k8s/airflow/airflow-connections-sync-job.yaml
+            if ! kctl -n "${K8S_NAMESPACE}" wait --for=condition=complete --timeout=120s job/airflow-connections-sync; then
+              echo "Airflow connection sync job failed"
+              kctl -n "${K8S_NAMESPACE}" get pods -o wide || true
+              kctl -n "${K8S_NAMESPACE}" describe job airflow-connections-sync || true
+              for pod_name in $(kctl -n "${K8S_NAMESPACE}" get pods -l job-name=airflow-connections-sync -o name || true); do
+                kctl -n "${K8S_NAMESPACE}" describe "${pod_name}" || true
+                kctl -n "${K8S_NAMESPACE}" logs "${pod_name}" --tail=200 || true
+              done
+              exit 1
+            fi
+
             kctl apply -f k8s/airflow/airflow-webserver-service.yaml
             kctl apply -f k8s/airflow/airflow-webserver-deployment.rendered.yaml
             kctl apply -f k8s/airflow/airflow-scheduler-deployment.rendered.yaml

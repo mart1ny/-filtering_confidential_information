@@ -3,6 +3,7 @@ from datetime import datetime
 
 from airflow import DAG
 from airflow.providers.docker.operators.docker import DockerOperator
+from airflow_runtime_connections import build_runtime_env
 from docker.types import Mount
 
 
@@ -69,26 +70,13 @@ with DAG(
                 read_only=True,
             ),
         )
-    training_env = {"APP_ENV": "training"}
-    for key in (
-        "AWS_ACCESS_KEY_ID",
-        "AWS_SECRET_ACCESS_KEY",
-        "AWS_SESSION_TOKEN",
-        "AWS_REGION",
-        "AWS_DEFAULT_REGION",
-        "S3_ENDPOINT_URL",
-        "TRAIN_RESULTS_S3_URI_PREFIX",
-        "REVIEW_STORAGE_DIR",
-        "REVIEW_DATABASE_URL",
-        "REVIEW_DB_HOST",
-        "REVIEW_DB_PORT",
-        "REVIEW_DB_NAME",
-        "REVIEW_DB_USER",
-        "REVIEW_DB_PASSWORD",
-    ):
-        value = os.environ.get(key)
-        if value:
-            training_env[key] = value
+    training_env = build_runtime_env(
+        "training",
+        (
+            "TRAIN_RESULTS_S3_URI_PREFIX",
+            "REVIEW_STORAGE_DIR",
+        ),
+    )
     training_env.setdefault("REVIEW_STORAGE_DIR", review_mount_target)
 
     export_review_dataset = DockerOperator(

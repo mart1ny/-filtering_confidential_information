@@ -1,0 +1,132 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: airflow-connections-sync
+  namespace: confidential-filter
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: airflow-connections-sync
+        app.kubernetes.io/part-of: confidential-filter
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: airflow-connections-sync
+          image: apache/airflow:2.10.5
+          securityContext:
+            runAsUser: 0
+            runAsGroup: 0
+          envFrom:
+            - secretRef:
+                name: airflow-secrets
+          command:
+            - bash
+            - -lc
+            - |
+              set -euo pipefail
+              /home/airflow/.local/bin/python <<'PY'
+              import json
+              import os
+              from urllib.parse import unquote, urlparse
+
+              from airflow.models.connection import Connection
+              from airflow.utils.session import create_session
+
+
+              def _normalize(value: str | None) -> str | None:
+                  if value is None:
+                      return None
+                  stripped = value.strip()
+                  return stripped or None
+
+
+              def _parse_review_db_definition() -> dict[str, object] | None:
+                  review_db_url = _normalize(os.environ.get("REVIEW_DATABASE_URL"))
+                  if review_db_url:
+                      parsed = urlparse(review_db_url)
+                      host = parsed.hostname
+                      port = parsed.port
+                      schema = parsed.path.lstrip("/") or None
+                      login = unquote(parsed.username) if parsed.username else None
+                      password = unquote(parsed.password) if parsed.password else None
+                  else:
+                      host = _normalize(os.environ.get("REVIEW_DB_HOST"))
+                      port_value = _normalize(os.environ.get("REVIEW_DB_PORT"))
+                      port = int(port_value) if port_value else 5432
+                      schema = _normalize(os.environ.get("REVIEW_DB_NAME"))
+                      login = _normalize(os.environ.get("REVIEW_DB_USER"))
+                      password = _normalize(os.environ.get("REVIEW_DB_PASSWORD"))
+
+                  if not all((host, schema, login, password)):
+                      print("Skipping review_db connection: database settings are incomplete.")
+                      return None
+
+                  return {
+                      "conn_id": "review_db",
+                      "conn_type": "postgres",
+                      "host": host,
+                      "port": port,
+                      "schema": schema,
+                      "login": login,
+                      "password": password,
+                      "description": "Review database used by project DAGs",
+                      "extra": {},
+                  }
+
+
+              def _build_s3_definition() -> dict[str, object] | None:
+                  access_key = _normalize(os.environ.get("AWS_ACCESS_KEY_ID"))
+                  secret_key = _normalize(os.environ.get("AWS_SECRET_ACCESS_KEY"))
+                  if not access_key or not secret_key:
+                      print("Skipping regru_s3 connection: S3 credentials are incomplete.")
+                      return None
+
+                  extra: dict[str, str] = {}
+                  optional_extra_keys = {
+                      "AWS_SESSION_TOKEN": "aws_session_token",
+                      "AWS_REGION": "region_name",
+                      "AWS_DEFAULT_REGION": "aws_default_region",
+                      "S3_ENDPOINT_URL": "endpoint_url",
+                  }
+                  for env_key, extra_key in optional_extra_keys.items():
+                      value = _normalize(os.environ.get(env_key))
+                      if value:
+                          extra[extra_key] = value
+
+                  return {
+                      "conn_id": "regru_s3",
+                      "conn_type": "aws",
+                      "login": access_key,
+                      "password": secret_key,
+                      "description": "S3-compatible object storage used by project DAGs",
+                      "extra": extra,
+                  }
+
+
+              def _upsert_connection(definition: dict[str, object]) -> None:
+                  conn_id = str(definition["conn_id"])
+                  extra = definition.pop("extra", {})
+
+                  with create_session() as session:
+                      existing = session.query(Connection).filter(Connection.conn_id == conn_id).one_or_none()
+                      if existing is None:
+                          existing = Connection(conn_id=conn_id)
+                          session.add(existing)
+
+                      for field_name, value in definition.items():
+                          setattr(existing, field_name, value)
+                      existing.set_extra(json.dumps(extra, ensure_ascii=True, sort_keys=True))
+                      session.commit()
+
+                  print(f"Upserted Airflow connection: {conn_id}")
+
+
+              for connection_definition in (
+                  _parse_review_db_definition(),
+                  _build_s3_definition(),
+              ):
+                  if connection_definition is not None:
+                      _upsert_connection(connection_definition)
+              PY
