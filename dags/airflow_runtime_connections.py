@@ -100,11 +100,7 @@ def _get_connection(conn_id: str) -> Connection | None:
 
 
 def _read_env_values(keys: tuple[str, ...]) -> dict[str, str]:
-    return {
-        key: value
-        for key in keys
-        if (value := os.environ.get(key))
-    }
+    return {key: value for key in keys if (value := os.environ.get(key))}
 
 
 def _first_present(connection_extra: dict[str, Any], *keys: str) -> str | None:

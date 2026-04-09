@@ -29,12 +29,7 @@ with DAG(
     drift_mount_source = os.environ.get("DRIFT_MOUNT_SOURCE", "confidential_drift_data")
     drift_mount_target = os.environ.get("DRIFT_MOUNT_TARGET", "/var/lib/confidential-drift")
     drift_mount_type = _normalize_mount_type(drift_mount_source, drift_mount_type)
-    runtime_env = build_runtime_env(
-        "batch",
-        (
-            "DRIFT_RESULTS_S3_URI_PREFIX",
-        ),
-    )
+    runtime_env = build_runtime_env("batch", ("DRIFT_RESULTS_S3_URI_PREFIX",))
     shared_mounts = [
         Mount(
             source=drift_mount_source,
