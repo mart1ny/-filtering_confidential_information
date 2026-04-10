@@ -19,9 +19,9 @@ def _normalize_mount_type(source: str, configured_type: str) -> str:
 
 with DAG(
     dag_id="confidential_metrics_batch",
-    start_date=datetime(2026, 1, 1),
+    start_date=datetime(2026, 3, 25),
     schedule="@daily",
-    catchup=False,
+    catchup=True,
     max_active_runs=1,
     params={
         "use_today": Param(
