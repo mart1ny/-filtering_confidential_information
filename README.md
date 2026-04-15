@@ -54,8 +54,9 @@ infra/               # Prometheus/Grafana/Alertmanager
 
 - `GET /health` — healthcheck
 - `POST /v1/assess` — оценка текста (`allow/review/block`)
-- `POST /v1/metrics/drift` — прием PSI/CSI
-- `GET /metrics` — Prometheus endpoint
+- `GET /v1/review-queue` — список кейсов для ручной проверки
+- `POST /v1/review-queue/{case_id}/label` — разметка кейса ревьюером
+- `POST /v1/review-dataset/export` — экспорт размеченных кейсов в датасет
 
 Swagger:
 - `http://localhost:8000/docs`
