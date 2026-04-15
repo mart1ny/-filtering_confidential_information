@@ -9,7 +9,6 @@ from app.adapters.detectors.factory import build_text_detector
 from app.api.schemas import (
     AssessRequest,
     AssessResponse,
-    DriftMetricRequest,
     HealthResponse,
     ReviewCaseResponse,
     ReviewLabelRequest,
@@ -18,12 +17,7 @@ from app.application.use_cases.assess_text import AssessTextUseCase
 from app.domain.models import Decision, ReviewCase, ReviewStatus
 from app.inference.store import AssessmentEventStore
 from app.infrastructure.config.settings import settings
-from app.infrastructure.monitoring.metrics import (
-    ML_QUALITY_SCORE,
-    REQUEST_COUNT,
-    REQUEST_LATENCY,
-    metrics_response,
-)
+from app.infrastructure.monitoring.metrics import REQUEST_COUNT, REQUEST_LATENCY
 from app.review.store import ReviewQueueStore
 
 
@@ -94,21 +88,6 @@ def assess(
         detector_used=assessment.detector_used,
         detector_details=assessment.detector_details,
     )
-
-
-@router.post("/v1/metrics/drift")
-def ingest_drift(payload: DriftMetricRequest) -> dict[str, str]:
-    psi_bucket = "high" if payload.psi >= 0.2 else "low"
-    csi_bucket = "high" if payload.csi >= 0.2 else "low"
-    ML_QUALITY_SCORE.labels(metric_name="psi", bucket=psi_bucket).inc()
-    ML_QUALITY_SCORE.labels(metric_name="csi", bucket=csi_bucket).inc()
-    REQUEST_COUNT.labels(endpoint="drift", decision="n/a").inc()
-    return {"status": "accepted"}
-
-
-@router.get("/metrics")
-def metrics() -> object:
-    return metrics_response()
 
 
 @router.get("/v1/review-queue", response_model=list[ReviewCaseResponse])
