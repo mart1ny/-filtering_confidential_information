@@ -520,6 +520,8 @@ jobs:
 
             kctl apply -f k8s/secret.generated.yaml
             kctl apply -k k8s/
+            kctl -n "${K8S_NAMESPACE}" rollout restart deployment/app
+            kctl -n "${K8S_NAMESPACE}" rollout restart deployment/frontend
             if ! kctl -n "${K8S_NAMESPACE}" rollout status deployment/app --timeout=180s; then
               echo "App rollout failed"
               kctl -n "${K8S_NAMESPACE}" get pods -o wide || true
